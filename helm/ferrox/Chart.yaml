@@ -1,0 +1,16 @@
+apiVersion: v2
+name: ferrox
+description: Ferrox — AWS S3-compatible object storage server in Rust
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/ferrox-rs/ferrox
+sources:
+  - https://github.com/ferrox-rs/ferrox
+maintainers:
+  - name: Ferrox Contributors
+keywords:
+  - s3
+  - object-storage
+  - rust
+  - storage

@@ -1,0 +1,50 @@
+# Keep the Docker build context tight — only what cargo needs.
+
+target/
+**/target/
+.git/
+.github/
+
+# Docs / community / planning — not needed inside the image.
+docs/
+files/
+*.md
+LICENSE
+
+# Local state
+data/
+.data/
+.ferrox-data/
+logs/
+*.log
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# Compose / deploy manifests (image is rebuilt by CI, not the chart).
+docker-compose.yaml
+helm/
+terraform/
+
+# Editor / OS
+.vscode/
+.idea/
+.claude/
+.cursor/
+.DS_Store
+._*
+Thumbs.db
+
+# Tests + fuzz + benches don't need to ship inside the runtime image.
+tests/
+fuzz/
+**/benches/
+
+# Misc
+*.bak
+*.tmp
+*.tar.gz
+*.zip

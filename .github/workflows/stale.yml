@@ -1,0 +1,25 @@
+name: stale
+
+on:
+  schedule:
+    - cron: "0 8 * * *"
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/stale@v9
+        with:
+          days-before-issue-stale: 60
+          days-before-issue-close: 14
+          stale-issue-label: "stale"
+          stale-issue-message: |
+            This issue has been quiet for 60 days. If it's still relevant,
+            drop a comment to keep it open. Otherwise it'll be closed in 14 days.
+          days-before-pr-stale: 60
+          days-before-pr-close: 14
+          stale-pr-label: "stale"
+          exempt-issue-labels: "pinned,roadmap,security"

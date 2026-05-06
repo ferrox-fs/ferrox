@@ -1,0 +1,48 @@
+name: Bug report
+description: Report something that's broken in Ferrox.
+labels: ["bug", "needs-triage"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Ferrox version
+      description: Output of `ferroxd --version` or the Docker tag.
+      placeholder: "v0.1.0 / ghcr.io/ferrox-rs/ferrox:0.1.0"
+    validations: { required: true }
+  - type: input
+    id: os
+    attributes:
+      label: OS / arch
+      placeholder: "Ubuntu 24.04 x86_64"
+    validations: { required: true }
+  - type: dropdown
+    id: client
+    attributes:
+      label: SDK / client
+      options:
+        - AWS CLI
+        - Boto3 (Python)
+        - aws-sdk-go-v2
+        - aws-sdk-js-v3
+        - rclone
+        - curl
+        - other
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: A minimal repro is the fastest path to a fix.
+      placeholder: "1. Start ferroxd with ...\n2. Run ...\n3. ..."
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations: { required: true }
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: Include relevant `ferroxd` logs (`RUST_LOG=debug`) and full HTTP responses when possible.
+    validations: { required: true }

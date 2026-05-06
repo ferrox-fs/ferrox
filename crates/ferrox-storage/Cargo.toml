@@ -1,0 +1,40 @@
+[package]
+name = "ferrox-storage"
+description = "Pluggable object storage backends for Ferrox (disk default)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+ferrox-error = { workspace = true }
+
+async-trait = { workspace = true }
+bytes       = { workspace = true }
+futures     = { workspace = true }
+tokio       = { workspace = true }
+tokio-util  = { workspace = true }
+tokio-stream = { workspace = true }
+
+sha2  = { workspace = true }
+md-5  = { workspace = true }
+crc32c = { workspace = true }
+hex   = { workspace = true }
+
+serde      = { workspace = true }
+serde_json = { workspace = true }
+time       = { workspace = true }
+tracing    = { workspace = true }
+percent-encoding = { workspace = true }
+
+[features]
+# Phase 3 Step 44 — interface-only stub. Enable to compile the
+# `ErasureBackend` skeleton; v2 ships the real implementation.
+default = []
+erasure = []
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio    = { workspace = true }

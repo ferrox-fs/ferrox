@@ -1,0 +1,20 @@
+# Code owners — auto-requested on every PR. Replace placeholder handles before
+# announcing the project. Keep entries scoped narrowly so the right person
+# reviews; avoid blanket `* @everyone` rules.
+
+# Crate-level ownership
+/crates/ferrox-error/      @ferrox-rs/maintainers
+/crates/ferrox-crypto/     @ferrox-rs/maintainers @ferrox-rs/security
+/crates/ferrox-meta/       @ferrox-rs/maintainers
+/crates/ferrox-storage/    @ferrox-rs/maintainers
+/crates/ferrox-s3-api/     @ferrox-rs/maintainers
+/crates/ferrox-gateway/    @ferrox-rs/maintainers
+/crates/ferrox-cli/        @ferrox-rs/maintainers
+
+# Cross-cutting
+/.github/                  @ferrox-rs/maintainers
+/Dockerfile                @ferrox-rs/maintainers
+/helm/                     @ferrox-rs/maintainers
+/terraform/                @ferrox-rs/maintainers
+/docs/                     @ferrox-rs/maintainers
+/SECURITY.md               @ferrox-rs/security

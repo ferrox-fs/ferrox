@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+# Install docker
+if ! command -v docker >/dev/null 2>&1; then
+  apt-get update -y || yum install -y || true
+  apt-get install -y docker.io || amazon-linux-extras install -y docker || true
+fi
+systemctl enable --now docker
+
+# Mount data volume.
+mkdir -p /mnt/ferrox
+DEVICE=/dev/nvme1n1
+[ -b $DEVICE ] || DEVICE=/dev/xvdf
+if ! blkid $DEVICE; then
+  mkfs.ext4 -F $DEVICE
+fi
+mount $DEVICE /mnt/ferrox || true
+echo "$DEVICE /mnt/ferrox ext4 defaults 0 0" >> /etc/fstab
+
+# Run ferrox.
+docker rm -f ferrox 2>/dev/null || true
+docker run -d --name ferrox --restart=always \
+  -p 9000:9000 -p 9443:9443 \
+  -v /mnt/ferrox:/data \
+  -e FERROX_ACCESS_KEY="${access_key}" \
+  -e FERROX_SECRET_KEY="${secret_key}" \
+  ghcr.io/ferrox-rs/ferrox:${image_tag} \
+  --data-dir /data --bind 0.0.0.0:9000

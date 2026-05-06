@@ -1,0 +1,13 @@
+[book]
+title = "Ferrox"
+description = "AWS S3-compatible object storage in Rust"
+authors = ["Ferrox Contributors"]
+language = "en"
+multilingual = false
+src = "src"
+
+[output.html]
+default-theme = "rust"
+preferred-dark-theme = "ayu"
+git-repository-url = "https://github.com/ferrox-rs/ferrox"
+edit-url-template = "https://github.com/ferrox-rs/ferrox/edit/main/docs/{path}"

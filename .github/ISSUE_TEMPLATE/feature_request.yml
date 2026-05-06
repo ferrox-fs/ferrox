@@ -1,0 +1,25 @@
+name: Feature request
+description: Propose a new capability or improvement.
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What pain are you running into? What can't you do today?
+    validations: { required: true }
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Sketch the API, the wire surface, or the operator-facing behaviour you'd like.
+    validations: { required: true }
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: input
+    id: links
+    attributes:
+      label: Relevant AWS docs / specs
+      description: When proposing an S3 endpoint, link the AWS reference page.

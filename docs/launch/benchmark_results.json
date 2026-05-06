@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "hardware": {
+    "instance": "TBD (t3.medium / EBS gp3)",
+    "vcpus": 2,
+    "memory_gib": 4,
+    "storage": "EBS gp3 — 50 GiB"
+  },
+  "ferrox_version": "0.1.0",
+  "minio_version": "TBD",
+  "results": {
+    "list_objects_v2_1000": { "ferrox_p99_ms": null, "minio_p99_ms": null },
+    "put_object_4kb":       { "ferrox_p99_ms": null, "minio_p99_ms": null },
+    "get_object_4kb":       { "ferrox_p99_ms": null, "minio_p99_ms": null },
+    "copy_object_4kb":      { "ferrox_p99_ms": null, "minio_p99_ms": null }
+  },
+  "notes": "Replace nulls with measured p99s before the 1.0 release."
+}

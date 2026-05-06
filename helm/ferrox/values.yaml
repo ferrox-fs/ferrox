@@ -1,0 +1,69 @@
+image:
+  repository: ghcr.io/ferrox-rs/ferrox
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  httpPort: 9000
+  httpsPort: 9443
+
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: "2"
+    memory: 2Gi
+
+credentials:
+  accessKey: minioadmin
+  secretKey: minioadmin
+
+# Optional 64-hex master key for SSE-S3. Leave empty to disable SSE-S3.
+sseMasterKey: ""
+
+# Per-access-key request budget (req/sec). 0 disables rate limiting.
+maxReqPerSec: 0
+
+tls:
+  enabled: false
+  secretName: ""
+  domain: ""
+
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  annotations: {}
+  tls: false
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  fsGroup: 65532
+
+securityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9000"
+  prometheus.io/path: "/metrics"

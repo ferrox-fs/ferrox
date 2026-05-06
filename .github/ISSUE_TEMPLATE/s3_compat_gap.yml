@@ -1,0 +1,32 @@
+name: S3 compatibility gap
+description: An AWS S3 surface Ferrox doesn't yet implement correctly.
+labels: ["s3-compat", "needs-triage"]
+body:
+  - type: input
+    id: endpoint
+    attributes:
+      label: S3 operation
+      placeholder: "PutObject / ?lifecycle / ?policy / ListObjectsV1 / etc."
+    validations: { required: true }
+  - type: input
+    id: aws_doc
+    attributes:
+      label: AWS reference
+      description: Link to the AWS API doc for the operation.
+    validations: { required: true }
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Blocker — major SDK or workflow doesn't work at all
+        - High — silent wrong-data
+        - Medium — degraded behaviour with workaround
+        - Low — minor / cosmetic
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproducer
+      description: Boto3 / curl snippet demonstrating the gap. Include the AWS S3 response and the Ferrox response side-by-side.
+    validations: { required: true }

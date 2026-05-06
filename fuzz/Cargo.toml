@@ -1,0 +1,31 @@
+[package]
+name = "ferrox-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+ferrox-gateway = { path = "../crates/ferrox-gateway" }
+ferrox-s3-api  = { path = "../crates/ferrox-s3-api" }
+
+[[bin]]
+name = "fuzz_sigv4_parser"
+path = "fuzz_targets/fuzz_sigv4_parser.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_xml_request_parser"
+path = "fuzz_targets/fuzz_xml_request_parser.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_object_key_validator"
+path = "fuzz_targets/fuzz_object_key_validator.rs"
+test = false
+doc = false

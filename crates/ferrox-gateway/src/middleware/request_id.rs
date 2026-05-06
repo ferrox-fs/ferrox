@@ -1,0 +1,61 @@
+//! `x-amz-request-id` injection.
+//!
+//! Generates a fresh UUIDv4 per request, attaches it as a request extension,
+//! and copies it into the response header so log correlation is trivial.
+
+use std::task::{Context, Poll};
+
+use axum::extract::Request;
+use axum::http::{HeaderValue, Response};
+use futures::future::BoxFuture;
+use tower::{Layer, Service};
+use uuid::Uuid;
+
+/// Extension type used to retrieve the per-request id from handlers.
+#[derive(Debug, Clone)]
+pub struct RequestId(pub String);
+
+/// tower [`Layer`] that wraps a service in [`RequestIdMiddleware`].
+#[derive(Debug, Clone, Default)]
+pub struct RequestIdLayer;
+
+impl<S> Layer<S> for RequestIdLayer {
+    type Service = RequestIdMiddleware<S>;
+    fn layer(&self, inner: S) -> Self::Service {
+        RequestIdMiddleware { inner }
+    }
+}
+
+/// Middleware that injects a per-request UUID into both the request
+/// extensions and the response `x-amz-request-id` header.
+#[derive(Debug, Clone)]
+pub struct RequestIdMiddleware<S> {
+    inner: S,
+}
+
+impl<S, B> Service<Request> for RequestIdMiddleware<S>
+where
+    S: Service<Request, Response = Response<B>> + Send + Clone + 'static,
+    S::Future: Send + 'static,
+{
+    type Response = Response<B>;
+    type Error = S::Error;
+    type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, mut req: Request) -> Self::Future {
+        let id = Uuid::new_v4().to_string();
+        req.extensions_mut().insert(RequestId(id.clone()));
+        let mut inner = self.inner.clone();
+        Box::pin(async move {
+            let mut resp = inner.call(req).await?;
+            if let Ok(v) = HeaderValue::from_str(&id) {
+                resp.headers_mut().insert("x-amz-request-id", v);
+            }
+            Ok(resp)
+        })
+    }
+}

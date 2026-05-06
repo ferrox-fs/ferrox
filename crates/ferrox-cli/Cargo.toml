@@ -1,0 +1,41 @@
+[package]
+name = "ferrox-cli"
+description = "ferroxd server daemon and ferroxctl admin CLI binaries."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "ferroxd"
+path = "src/bin/ferroxd.rs"
+
+[[bin]]
+name = "ferroxctl"
+path = "src/bin/ferroxctl.rs"
+
+[dependencies]
+ferrox-error   = { workspace = true }
+ferrox-gateway = { workspace = true }
+ferrox-meta    = { workspace = true }
+ferrox-storage = { workspace = true }
+ferrox-s3-api  = { workspace = true }
+ferrox-iam     = { workspace = true }
+ferrox-crypto  = { workspace = true }
+
+tokio          = { workspace = true }
+clap           = { workspace = true }
+figment        = { workspace = true }
+tracing        = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde          = { workspace = true }
+anyhow         = { workspace = true }
+axum           = { workspace = true }
+hyper          = { workspace = true }
+hyper-util     = { workspace = true }
+tower          = { workspace = true }
+rustls         = { workspace = true }
+tokio-rustls   = { workspace = true }
+rustls-pemfile = { workspace = true }

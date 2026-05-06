@@ -1,0 +1,184 @@
+# ─────────────────────────────────────────────────────────────────
+# Rust / Cargo
+# ─────────────────────────────────────────────────────────────────
+/target/
+**/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo.lock — committed for the workspace (binary project). Don't ignore.
+
+# ─────────────────────────────────────────────────────────────────
+# cargo-fuzz
+# ─────────────────────────────────────────────────────────────────
+fuzz/target/
+fuzz/corpus/
+fuzz/artifacts/
+fuzz/coverage/
+
+# ─────────────────────────────────────────────────────────────────
+# Criterion / benchmark output
+# ─────────────────────────────────────────────────────────────────
+**/criterion/
+target/criterion/
+flamegraph.svg
+perf.data*
+*.profraw
+
+# ─────────────────────────────────────────────────────────────────
+# Code coverage
+# ─────────────────────────────────────────────────────────────────
+tarpaulin-report.*
+cobertura.xml
+lcov.info
+coverage/
+
+# ─────────────────────────────────────────────────────────────────
+# mdBook generated site
+# ─────────────────────────────────────────────────────────────────
+docs/book/
+
+# ─────────────────────────────────────────────────────────────────
+# Helm
+# ─────────────────────────────────────────────────────────────────
+helm/**/charts/
+helm/**/*.tgz
+
+# ─────────────────────────────────────────────────────────────────
+# Terraform
+# ─────────────────────────────────────────────────────────────────
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# ─────────────────────────────────────────────────────────────────
+# Python (integration tests / scripts)
+# ─────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ─────────────────────────────────────────────────────────────────
+# Node (any sdk/ or web tooling)
+# ─────────────────────────────────────────────────────────────────
+node_modules/
+sdk/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ─────────────────────────────────────────────────────────────────
+# Runtime data / local state
+# ─────────────────────────────────────────────────────────────────
+/data/
+.data/
+.ferrox-data/
+*.sled
+*.db
+*.rocksdb/
+.admin-ca/
+
+# ─────────────────────────────────────────────────────────────────
+# Logs
+# ─────────────────────────────────────────────────────────────────
+logs/
+*.log
+!logs/.gitkeep
+
+# ─────────────────────────────────────────────────────────────────
+# Secrets / env
+# ─────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+
+# ─────────────────────────────────────────────────────────────────
+# Internal planning / design docs (not for public repo)
+# ─────────────────────────────────────────────────────────────────
+files/
+phase1.md
+phase*.md
+*.docx
+*.pptx
+*.xlsx
+~$*
+
+# ─────────────────────────────────────────────────────────────────
+# IDE / editor
+# ─────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.history/
+.ionide/
+
+# Claude / AI assistant local cache
+.claude/
+.cursor/
+.continue/
+
+# ─────────────────────────────────────────────────────────────────
+# OS noise — macOS / Windows / Linux
+# ─────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ─────────────────────────────────────────────────────────────────
+# Build / packaging output
+# ─────────────────────────────────────────────────────────────────
+dist/
+artifacts/
+*.tar.gz
+*.zip
+
+# ─────────────────────────────────────────────────────────────────
+# Misc
+# ─────────────────────────────────────────────────────────────────
+*.bak
+*.tmp
+*.orig
+*.rej
