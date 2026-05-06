@@ -142,15 +142,15 @@ mod tests {
     use super::*;
 
     const VALID: &str = "AWS4-HMAC-SHA256 \
-        Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request, \
+        Credential=MOCKACCESSKEYFORTEST/20260505/us-east-1/s3/aws4_request, \
         SignedHeaders=host;range;x-amz-date, \
         Signature=fe5f80f77d5fa3beca038a248ff027d0445342fe2855ddc963176630326f1024";
 
     #[test]
     fn test_parse_valid_authorization_header() {
         let h = SigV4Header::from_authorization_header(VALID).unwrap();
-        assert_eq!(h.access_key, "AKIAIOSFODNN7EXAMPLE");
-        assert_eq!(h.date, "20130524");
+        assert_eq!(h.access_key, "MOCKACCESSKEYFORTEST");
+        assert_eq!(h.date, "20260505");
         assert_eq!(h.region, "us-east-1");
         assert_eq!(h.service, "s3");
         assert_eq!(h.signed_headers, vec!["host", "range", "x-amz-date"]);
@@ -158,7 +158,7 @@ mod tests {
             h.signature,
             "fe5f80f77d5fa3beca038a248ff027d0445342fe2855ddc963176630326f1024"
         );
-        assert_eq!(h.credential_scope, "20130524/us-east-1/s3/aws4_request");
+        assert_eq!(h.credential_scope, "20260505/us-east-1/s3/aws4_request");
     }
 
     #[test]
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_missing_signature_field_returns_invalid_request() {
-        let v = "AWS4-HMAC-SHA256 Credential=AK/20130524/us-east-1/s3/aws4_request, \
+        let v = "AWS4-HMAC-SHA256 Credential=AK/20260505/us-east-1/s3/aws4_request, \
                  SignedHeaders=host";
         let err = SigV4Header::from_authorization_header(v).unwrap_err();
         assert!(matches!(err, FerroxError::InvalidRequest(_)));
@@ -178,7 +178,7 @@ mod tests {
 
     #[test]
     fn test_malformed_credential_scope_returns_invalid_request() {
-        let v = "AWS4-HMAC-SHA256 Credential=AK/20130524/us-east-1, \
+        let v = "AWS4-HMAC-SHA256 Credential=AK/20260505/us-east-1, \
                  SignedHeaders=host, Signature=abc";
         let err = SigV4Header::from_authorization_header(v).unwrap_err();
         assert!(matches!(err, FerroxError::InvalidRequest(_)));
@@ -186,7 +186,7 @@ mod tests {
 
     #[test]
     fn test_credential_scope_wrong_terminator_returns_invalid_request() {
-        let v = "AWS4-HMAC-SHA256 Credential=AK/20130524/us-east-1/s3/wrong, \
+        let v = "AWS4-HMAC-SHA256 Credential=AK/20260505/us-east-1/s3/wrong, \
                  SignedHeaders=host, Signature=abc";
         let err = SigV4Header::from_authorization_header(v).unwrap_err();
         assert!(matches!(err, FerroxError::InvalidRequest(_)));
@@ -194,7 +194,7 @@ mod tests {
 
     #[test]
     fn test_empty_signed_headers_returns_invalid_request() {
-        let v = "AWS4-HMAC-SHA256 Credential=AK/20130524/us-east-1/s3/aws4_request, \
+        let v = "AWS4-HMAC-SHA256 Credential=AK/20260505/us-east-1/s3/aws4_request, \
                  SignedHeaders=, Signature=abc";
         let err = SigV4Header::from_authorization_header(v).unwrap_err();
         assert!(matches!(err, FerroxError::InvalidRequest(_)));
@@ -209,7 +209,7 @@ mod tests {
 
     #[test]
     fn test_signed_headers_lowercased_and_trimmed() {
-        let v = "AWS4-HMAC-SHA256 Credential=AK/20130524/us-east-1/s3/aws4_request, \
+        let v = "AWS4-HMAC-SHA256 Credential=AK/20260505/us-east-1/s3/aws4_request, \
                  SignedHeaders=Host; X-Amz-Date , Signature=abc";
         let h = SigV4Header::from_authorization_header(v).unwrap();
         assert_eq!(h.signed_headers, vec!["host", "x-amz-date"]);

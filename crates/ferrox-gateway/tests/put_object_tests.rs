@@ -15,7 +15,7 @@ use tempfile::TempDir;
 use tower::util::ServiceExt;
 
 const ACCESS_KEY: &str = "AKIDEXAMPLE";
-const SECRET_KEY: &str = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+const SECRET_KEY: &str = "MOCKxSECRETxKEYxFORxTESTSxONLYx123456789";
 const REGION: &str = "us-east-1";
 const SERVICE: &str = "s3";
 

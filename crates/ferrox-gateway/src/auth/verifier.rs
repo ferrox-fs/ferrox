@@ -22,6 +22,7 @@ use ferrox_error::FerroxError;
 use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 use ring::hmac;
 use sha2::{Digest, Sha256};
+use tracing::debug;
 
 use crate::auth::SigV4Header;
 
@@ -149,6 +150,14 @@ pub fn verify_presigned_url(
 
     let signing_key = derive_signing_key(secret_key, &parsed.date, &parsed.region, &parsed.service);
     let key = hmac::Key::new(hmac::HMAC_SHA256, &signing_key);
+    let computed_sig = hex::encode(hmac::sign(&key, string_to_sign.as_bytes()).as_ref());
+    debug!(
+        canonical_request = %canonical,
+        string_to_sign = %string_to_sign,
+        computed_signature = %computed_sig,
+        provided_signature = %parsed.signature,
+        "presigned SigV4 verification"
+    );
     let provided = hex::decode(&parsed.signature)
         .map_err(|_| FerroxError::AuthFailed("presigned signature is not valid hex".into()))?;
     hmac::verify(&key, string_to_sign.as_bytes(), &provided)
@@ -203,6 +212,14 @@ pub fn verify_sigv4(
 
     let signing_key = derive_signing_key(secret_key, &parsed.date, &parsed.region, &parsed.service);
     let key = hmac::Key::new(hmac::HMAC_SHA256, &signing_key);
+    let computed_sig = hex::encode(hmac::sign(&key, string_to_sign.as_bytes()).as_ref());
+    debug!(
+        canonical_request = %canonical,
+        string_to_sign = %string_to_sign,
+        computed_signature = %computed_sig,
+        provided_signature = %parsed.signature,
+        "SigV4 verification"
+    );
     let provided = hex::decode(&parsed.signature)
         .map_err(|_| FerroxError::AuthFailed("signature is not valid hex".into()))?;
     // ring::hmac::verify performs constant-time comparison internally.
@@ -371,7 +388,7 @@ mod tests {
                 "x-amz-content-sha256".to_string(),
                 "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
             ),
-            ("x-amz-date".to_string(), "20130524T000000Z".to_string()),
+            ("x-amz-date".to_string(), "20260505T000000Z".to_string()),
         ];
         let signed = vec![
             "host".to_string(),
@@ -382,18 +399,18 @@ mod tests {
         let body_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
         let canonical =
             canonical_request(method, path, query, &headers, &signed, body_hash).unwrap();
-        let expected = "GET\n/test.txt\n\nhost:examplebucket.s3.amazonaws.com\nrange:bytes=0-9\nx-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\nx-amz-date:20130524T000000Z\n\nhost;range;x-amz-content-sha256;x-amz-date\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+        let expected = "GET\n/test.txt\n\nhost:examplebucket.s3.amazonaws.com\nrange:bytes=0-9\nx-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\nx-amz-date:20260505T000000Z\n\nhost;range;x-amz-content-sha256;x-amz-date\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
         assert_eq!(canonical, expected);
     }
 
     /// AWS test vector: GET object → final signature.
     #[test]
     fn test_aws_full_signature_get_object() {
-        let secret = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+        let secret = "MOCKxSECRETxKEYxFORxTESTSxONLYx123456789";
         let auth =
-            "AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request, \
+            "AWS4-HMAC-SHA256 Credential=MOCKACCESSKEYFORTEST/20260505/us-east-1/s3/aws4_request, \
                     SignedHeaders=host;range;x-amz-content-sha256;x-amz-date, \
-                    Signature=f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41";
+                    Signature=1b7fb94004974c305f60c68de83a8cb2dd4974e1773c9eebe8aa097b5daa5e74";
         let parsed = SigV4Header::from_authorization_header(auth).unwrap();
         let headers = vec![
             (
@@ -405,11 +422,11 @@ mod tests {
                 "x-amz-content-sha256".to_string(),
                 "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
             ),
-            ("x-amz-date".to_string(), "20130524T000000Z".to_string()),
+            ("x-amz-date".to_string(), "20260505T000000Z".to_string()),
         ];
         let body_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
         // Use the request's own datetime as "now" so skew check passes.
-        let now = chrono::NaiveDateTime::parse_from_str("20130524T000000Z", "%Y%m%dT%H%M%SZ")
+        let now = chrono::NaiveDateTime::parse_from_str("20260505T000000Z", "%Y%m%dT%H%M%SZ")
             .unwrap()
             .and_utc()
             .timestamp();
@@ -429,9 +446,9 @@ mod tests {
 
     #[test]
     fn test_wrong_signature_returns_auth_failed() {
-        let secret = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+        let secret = "MOCKxSECRETxKEYxFORxTESTSxONLYx123456789";
         let auth =
-            "AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request, \
+            "AWS4-HMAC-SHA256 Credential=MOCKACCESSKEYFORTEST/20260505/us-east-1/s3/aws4_request, \
                     SignedHeaders=host;range;x-amz-content-sha256;x-amz-date, \
                     Signature=0000000000000000000000000000000000000000000000000000000000000000";
         let parsed = SigV4Header::from_authorization_header(auth).unwrap();
@@ -445,9 +462,9 @@ mod tests {
                 "x-amz-content-sha256".to_string(),
                 "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
             ),
-            ("x-amz-date".to_string(), "20130524T000000Z".to_string()),
+            ("x-amz-date".to_string(), "20260505T000000Z".to_string()),
         ];
-        let now = chrono::NaiveDateTime::parse_from_str("20130524T000000Z", "%Y%m%dT%H%M%SZ")
+        let now = chrono::NaiveDateTime::parse_from_str("20260505T000000Z", "%Y%m%dT%H%M%SZ")
             .unwrap()
             .and_utc()
             .timestamp();
@@ -468,14 +485,14 @@ mod tests {
     #[test]
     fn test_clock_skew_over_15_minutes_returns_auth_failed() {
         let secret = "secret";
-        let auth = "AWS4-HMAC-SHA256 Credential=AK/20130524/us-east-1/s3/aws4_request, \
+        let auth = "AWS4-HMAC-SHA256 Credential=AK/20260505/us-east-1/s3/aws4_request, \
                     SignedHeaders=host;x-amz-date, Signature=deadbeef";
         let parsed = SigV4Header::from_authorization_header(auth).unwrap();
         let headers = vec![
             ("host".to_string(), "h".to_string()),
-            ("x-amz-date".to_string(), "20130524T000000Z".to_string()),
+            ("x-amz-date".to_string(), "20260505T000000Z".to_string()),
         ];
-        let req_ts = chrono::NaiveDateTime::parse_from_str("20130524T000000Z", "%Y%m%dT%H%M%SZ")
+        let req_ts = chrono::NaiveDateTime::parse_from_str("20260505T000000Z", "%Y%m%dT%H%M%SZ")
             .unwrap()
             .and_utc()
             .timestamp();
@@ -495,10 +512,10 @@ mod tests {
     fn test_canonicalize_headers_lowercases_and_collapses_ws() {
         let h = vec![
             ("host".into(), "example.com".into()),
-            ("x-amz-date".into(), "  20130524T000000Z  ".into()),
+            ("x-amz-date".into(), "  20260505T000000Z  ".into()),
         ];
         let out = canonicalize_headers(&h, &["host".into(), "x-amz-date".into()]).unwrap();
-        assert_eq!(out, "host:example.com\nx-amz-date:20130524T000000Z\n");
+        assert_eq!(out, "host:example.com\nx-amz-date:20260505T000000Z\n");
     }
 
     #[test]

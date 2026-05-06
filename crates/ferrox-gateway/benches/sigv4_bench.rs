@@ -4,7 +4,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use ferrox_gateway::auth::SigV4Header;
 
 const SAMPLE_AUTH: &str = "AWS4-HMAC-SHA256 \
-    Credential=AKIAIOSFODNN7EXAMPLE/20260505/us-east-1/s3/aws4_request, \
+    Credential=MOCKACCESSKEYFORTEST/20260505/us-east-1/s3/aws4_request, \
     SignedHeaders=host;x-amz-content-sha256;x-amz-date, \
     Signature=4e8e2c7d1bd0c0c0aa6c1bf0a0c0c0c0aa6c1bf0a0c0c0c0aa6c1bf0a0c0c0c0";
 
