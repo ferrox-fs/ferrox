@@ -16,7 +16,7 @@ use tower::util::ServiceExt;
 
 const ACCESS_KEY: &str = "AKIDEXAMPLE";
 const SECRET_KEY: &str = "MOCKxSECRETxKEYxFORxTESTSxONLYx123456789";
-const REGION: &str = "us-east-1";
+const REGION: &str = "testregion";
 const SERVICE: &str = "s3";
 
 struct TestEnv {

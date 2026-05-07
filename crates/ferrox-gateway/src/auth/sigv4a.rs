@@ -135,7 +135,7 @@ mod tests {
     #[test]
     fn test_parse_well_formed() {
         let h = SigV4AHeader::from_authorization_header(
-            "AWS4-ECDSA-P256-SHA256 Credential=AKIA/20260505/us-*/s3/aws4_request, \
+            "AWS4-ECDSA-P256-SHA256 Credential=AKIA/20260506/us-*/s3/aws4_request, \
              SignedHeaders=host;x-amz-date, Signature=deadbeef",
         )
         .unwrap();
@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn test_region_wildcard() {
-        assert!(region_matches("us-*", "us-east-1"));
+        assert!(region_matches("test*", "testregion"));
         assert!(region_matches("*", "anything"));
         assert!(!region_matches("us-*", "eu-west-1"));
     }

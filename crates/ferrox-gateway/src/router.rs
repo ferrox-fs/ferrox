@@ -184,7 +184,7 @@ mod tests {
             .method("GET")
             .header(
                 "authorization",
-                "AWS4-HMAC-SHA256 Credential=AK/20260505/us-east-1/s3/aws4_request, \
+                "AWS4-HMAC-SHA256 Credential=AK/20260506/testregion/s3/aws4_request, \
                  SignedHeaders=host, Signature=abc",
             )
             .body(Body::empty())

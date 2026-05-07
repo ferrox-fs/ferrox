@@ -23,7 +23,7 @@ from botocore.exceptions import ClientError
 ENDPOINT = os.getenv("FERROX_ENDPOINT", "http://localhost:9000")
 ACCESS_KEY = os.getenv("FERROX_ACCESS_KEY", "testkey")
 SECRET_KEY = os.getenv("FERROX_SECRET_KEY", "testsecret")
-REGION = "us-east-1"
+REGION = "testregion"
 
 BUCKET = "boto3-compat-test"
 

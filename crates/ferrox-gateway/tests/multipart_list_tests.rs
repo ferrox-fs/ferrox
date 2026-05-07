@@ -15,7 +15,7 @@ use tower::util::ServiceExt;
 
 const AK: &str = "AKID";
 const SK: &str = "SECRET";
-const REGION: &str = "us-east-1";
+const REGION: &str = "testregion";
 
 async fn make_state() -> (TempDir, AppState<DiskBackend, SledMeta>) {
     let tmp = TempDir::new().unwrap();

@@ -16,7 +16,7 @@ use tower::util::ServiceExt;
 
 const ACCESS_KEY: &str = "AKIDEXAMPLE";
 const SECRET_KEY: &str = "MOCKxSECRETxKEYxFORxTESTSxONLYx123456789";
-const REGION: &str = "us-east-1";
+const REGION: &str = "testregion";
 const SERVICE: &str = "s3";
 const EMPTY_SHA: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 

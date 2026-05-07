@@ -15,7 +15,7 @@ Ferrox repeats the same construction on the server and compares with constant-ti
 
 ```
 Authorization: AWS4-HMAC-SHA256
-  Credential=AKIA…/20260505/us-east-1/s3/aws4_request,
+  Credential=AKIA…/20260506/testregion/s3/aws4_request,
   SignedHeaders=host;x-amz-content-sha256;x-amz-date,
   Signature=4e8e2…
 ```

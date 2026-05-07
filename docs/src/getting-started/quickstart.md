@@ -25,7 +25,7 @@ curl http://localhost:9000/health/live
 # Helper to sign with the AWS CLI
 export AWS_ACCESS_KEY_ID=minioadmin
 export AWS_SECRET_ACCESS_KEY=minioadmin
-export AWS_DEFAULT_REGION=us-east-1
+export AWS_DEFAULT_REGION=testregion
 export ENDPOINT=http://localhost:9000
 
 aws --endpoint-url $ENDPOINT s3 mb s3://photos
@@ -44,7 +44,7 @@ s3 = boto3.client(
     endpoint_url="http://localhost:9000",
     aws_access_key_id="minioadmin",
     aws_secret_access_key="minioadmin",
-    region_name="us-east-1",
+    region_name="testregion",
 )
 
 s3.create_bucket(Bucket="photos")

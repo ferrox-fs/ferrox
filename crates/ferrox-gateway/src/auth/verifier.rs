@@ -388,7 +388,7 @@ mod tests {
                 "x-amz-content-sha256".to_string(),
                 "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
             ),
-            ("x-amz-date".to_string(), "20260505T000000Z".to_string()),
+            ("x-amz-date".to_string(), "20260506T000000Z".to_string()),
         ];
         let signed = vec![
             "host".to_string(),
@@ -399,7 +399,7 @@ mod tests {
         let body_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
         let canonical =
             canonical_request(method, path, query, &headers, &signed, body_hash).unwrap();
-        let expected = "GET\n/test.txt\n\nhost:examplebucket.s3.amazonaws.com\nrange:bytes=0-9\nx-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\nx-amz-date:20260505T000000Z\n\nhost;range;x-amz-content-sha256;x-amz-date\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+        let expected = "GET\n/test.txt\n\nhost:examplebucket.s3.amazonaws.com\nrange:bytes=0-9\nx-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\nx-amz-date:20260506T000000Z\n\nhost;range;x-amz-content-sha256;x-amz-date\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
         assert_eq!(canonical, expected);
     }
 
@@ -408,9 +408,9 @@ mod tests {
     fn test_aws_full_signature_get_object() {
         let secret = "MOCKxSECRETxKEYxFORxTESTSxONLYx123456789";
         let auth =
-            "AWS4-HMAC-SHA256 Credential=MOCKACCESSKEYFORTEST/20260505/us-east-1/s3/aws4_request, \
+            "AWS4-HMAC-SHA256 Credential=MockAccessKey/20260506/testregion/s3/aws4_request, \
                     SignedHeaders=host;range;x-amz-content-sha256;x-amz-date, \
-                    Signature=1b7fb94004974c305f60c68de83a8cb2dd4974e1773c9eebe8aa097b5daa5e74";
+                    Signature=817990224baaefd8b7795f3c310da159eddc5cfbdeecdc54223e9d862c15f190";
         let parsed = SigV4Header::from_authorization_header(auth).unwrap();
         let headers = vec![
             (
@@ -422,11 +422,11 @@ mod tests {
                 "x-amz-content-sha256".to_string(),
                 "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
             ),
-            ("x-amz-date".to_string(), "20260505T000000Z".to_string()),
+            ("x-amz-date".to_string(), "20260506T000000Z".to_string()),
         ];
         let body_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
         // Use the request's own datetime as "now" so skew check passes.
-        let now = chrono::NaiveDateTime::parse_from_str("20260505T000000Z", "%Y%m%dT%H%M%SZ")
+        let now = chrono::NaiveDateTime::parse_from_str("20260506T000000Z", "%Y%m%dT%H%M%SZ")
             .unwrap()
             .and_utc()
             .timestamp();
@@ -448,7 +448,7 @@ mod tests {
     fn test_wrong_signature_returns_auth_failed() {
         let secret = "MOCKxSECRETxKEYxFORxTESTSxONLYx123456789";
         let auth =
-            "AWS4-HMAC-SHA256 Credential=MOCKACCESSKEYFORTEST/20260505/us-east-1/s3/aws4_request, \
+            "AWS4-HMAC-SHA256 Credential=MockAccessKey/20260506/testregion/s3/aws4_request, \
                     SignedHeaders=host;range;x-amz-content-sha256;x-amz-date, \
                     Signature=0000000000000000000000000000000000000000000000000000000000000000";
         let parsed = SigV4Header::from_authorization_header(auth).unwrap();
@@ -462,9 +462,9 @@ mod tests {
                 "x-amz-content-sha256".to_string(),
                 "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
             ),
-            ("x-amz-date".to_string(), "20260505T000000Z".to_string()),
+            ("x-amz-date".to_string(), "20260506T000000Z".to_string()),
         ];
-        let now = chrono::NaiveDateTime::parse_from_str("20260505T000000Z", "%Y%m%dT%H%M%SZ")
+        let now = chrono::NaiveDateTime::parse_from_str("20260506T000000Z", "%Y%m%dT%H%M%SZ")
             .unwrap()
             .and_utc()
             .timestamp();
@@ -485,14 +485,14 @@ mod tests {
     #[test]
     fn test_clock_skew_over_15_minutes_returns_auth_failed() {
         let secret = "secret";
-        let auth = "AWS4-HMAC-SHA256 Credential=AK/20260505/us-east-1/s3/aws4_request, \
+        let auth = "AWS4-HMAC-SHA256 Credential=AK/20260506/testregion/s3/aws4_request, \
                     SignedHeaders=host;x-amz-date, Signature=deadbeef";
         let parsed = SigV4Header::from_authorization_header(auth).unwrap();
         let headers = vec![
             ("host".to_string(), "h".to_string()),
-            ("x-amz-date".to_string(), "20260505T000000Z".to_string()),
+            ("x-amz-date".to_string(), "20260506T000000Z".to_string()),
         ];
-        let req_ts = chrono::NaiveDateTime::parse_from_str("20260505T000000Z", "%Y%m%dT%H%M%SZ")
+        let req_ts = chrono::NaiveDateTime::parse_from_str("20260506T000000Z", "%Y%m%dT%H%M%SZ")
             .unwrap()
             .and_utc()
             .timestamp();
@@ -512,10 +512,10 @@ mod tests {
     fn test_canonicalize_headers_lowercases_and_collapses_ws() {
         let h = vec![
             ("host".into(), "example.com".into()),
-            ("x-amz-date".into(), "  20260505T000000Z  ".into()),
+            ("x-amz-date".into(), "  20260506T000000Z  ".into()),
         ];
         let out = canonicalize_headers(&h, &["host".into(), "x-amz-date".into()]).unwrap();
-        assert_eq!(out, "host:example.com\nx-amz-date:20260505T000000Z\n");
+        assert_eq!(out, "host:example.com\nx-amz-date:20260506T000000Z\n");
     }
 
     #[test]
