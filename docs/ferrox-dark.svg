@@ -1,0 +1,27 @@
+<svg width="600" height="160" viewBox="0 0 600 160" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>Ferrox — dark lockup, transparent background</title>
+  <desc>Geometric orange fox icon with ferrox wordmark in orange, no background</desc>
+
+  <!-- Fox head silhouette -->
+  <path d="M90,36 L76,72 L82,118 L110,125 L138,118 L144,72 L130,36 L122,50 L110,54 L98,50 Z"
+        fill="#e05d26"/>
+
+  <!-- Inner ear accents -->
+  <polygon points="92,40 86,54 100,52" fill="#b84418"/>
+  <polygon points="128,40 120,52 134,54" fill="#b84418"/>
+
+  <!-- Eyes -->
+  <circle cx="93" cy="86" r="4.5" fill="#111111"/>
+  <circle cx="127" cy="86" r="4.5" fill="#111111"/>
+
+  <!-- Nose -->
+  <polygon points="106,108 114,108 110,115" fill="#b84418"/>
+
+  <!-- Wordmark -->
+  <text x="175" y="102"
+        font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif"
+        font-size="68"
+        font-weight="700"
+        letter-spacing="-2"
+        fill="#e05d26">ferrox</text>
+</svg>
