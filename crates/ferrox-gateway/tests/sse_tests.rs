@@ -45,6 +45,7 @@ async fn make_env_with_sse() -> TestEnv {
         clock_skew_secs: 900,
         region: "testregion".into(),
         sse_master_key: Some(SseMasterKey::from_hex(TEST_MASTER_KEY_HEX).unwrap()),
+        max_sse_inline_bytes: 100 * 1024 * 1024,
         max_req_per_sec: 0,
     });
     TestEnv {
@@ -71,6 +72,7 @@ async fn make_env_no_sse() -> TestEnv {
         clock_skew_secs: 900,
         region: "testregion".into(),
         sse_master_key: None,
+        max_sse_inline_bytes: 100 * 1024 * 1024,
         max_req_per_sec: 0,
     });
     TestEnv {
@@ -453,5 +455,71 @@ async fn test_sse_encrypted_bytes_differ_from_plaintext() {
     assert!(
         raw.len() > data.len(),
         "ciphertext must be larger than plaintext (nonce + tag overhead)"
+    );
+}
+
+#[tokio::test]
+async fn test_sse_put_above_inline_cap_returns_entity_too_large() {
+    // Configure a tiny inline cap so we can hit it without huge memory.
+    let tmp = TempDir::new().unwrap();
+    let storage = Arc::new(
+        DiskBackend::new(tmp.path().join("data"), false)
+            .await
+            .unwrap(),
+    );
+    let meta = Arc::new(SledMeta::open(tmp.path().join("meta")).unwrap());
+    let config = Arc::new(GatewayConfig {
+        data_dir: tmp.path().to_path_buf(),
+        access_key: ACCESS_KEY.into(),
+        secret_key: SECRET_KEY.into(),
+        fsync: false,
+        clock_skew_secs: 900,
+        region: "testregion".into(),
+        sse_master_key: Some(SseMasterKey::from_hex(TEST_MASTER_KEY_HEX).unwrap()),
+        max_sse_inline_bytes: 1024, // 1 KiB cap → 2 KiB PUT must be rejected
+        max_req_per_sec: 0,
+    });
+    let app = build_router(AppState {
+        storage,
+        meta,
+        config,
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
+        rate_limiter: None,
+    });
+
+    create_bucket(app.clone(), "enc-cap-bucket").await;
+
+    let data = vec![0u8; 2048];
+    let body_sha = hex_sha256(&data);
+    let amz_date = chrono::Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
+    let auth = sign(
+        "PUT",
+        "/enc-cap-bucket/big",
+        "localhost",
+        &amz_date,
+        &body_sha,
+        &[
+            ("content-length", &data.len().to_string()),
+            ("x-amz-server-side-encryption", "AES256"),
+        ],
+    );
+    let req = Request::builder()
+        .uri("/enc-cap-bucket/big")
+        .method("PUT")
+        .header("host", "localhost")
+        .header("x-amz-date", &amz_date)
+        .header("x-amz-content-sha256", &body_sha)
+        .header("content-length", data.len().to_string())
+        .header("x-amz-server-side-encryption", "AES256")
+        .header("authorization", auth)
+        .body(Body::from(data))
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let body = to_bytes(resp.into_body(), 64 * 1024).await.unwrap();
+    let xml = String::from_utf8_lossy(&body);
+    assert!(
+        xml.contains("EntityTooLarge"),
+        "expected EntityTooLarge, got: {xml}"
     );
 }

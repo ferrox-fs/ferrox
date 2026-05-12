@@ -97,6 +97,16 @@ struct Cli {
     #[arg(long, env = "FERROX_SSE_MASTER_KEY")]
     sse_master_key: Option<String>,
 
+    /// Maximum single-PUT body that may be encrypted inline (bytes). Defaults
+    /// to 100 MiB; larger objects must use multipart. Whole-object AEAD
+    /// requires buffering the plaintext, so this is a memory-safety bound.
+    #[arg(
+        long,
+        env = "FERROX_MAX_SSE_INLINE_BYTES",
+        default_value_t = 100 * 1024 * 1024
+    )]
+    max_sse_inline_bytes: u64,
+
     /// Per-access-key request budget (requests/sec). 0 disables rate limiting.
     #[arg(long, env = "FERROX_MAX_REQ_PER_SEC", default_value_t = 0)]
     max_req_per_sec: u32,
@@ -148,6 +158,7 @@ async fn main() -> Result<()> {
         clock_skew_secs: cfg.clock_skew_secs,
         region: cfg.region,
         sse_master_key,
+        max_sse_inline_bytes: cfg.max_sse_inline_bytes,
         max_req_per_sec: cfg.max_req_per_sec,
     });
 

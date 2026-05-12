@@ -27,6 +27,10 @@ pub struct GatewayConfig {
     pub region: String,
     /// Optional 32-byte master key for SSE-S3. `None` disables SSE-S3.
     pub sse_master_key: Option<ferrox_crypto::SseMasterKey>,
+    /// Maximum body size that may be encrypted in a single PUT (SSE-C / SSE-S3).
+    /// Whole-object AEAD requires buffering the plaintext; this bound caps
+    /// memory use per request. Beyond this, clients must use multipart upload.
+    pub max_sse_inline_bytes: u64,
     /// Per-access-key requests/second limit. `0` disables rate limiting.
     pub max_req_per_sec: u32,
 }

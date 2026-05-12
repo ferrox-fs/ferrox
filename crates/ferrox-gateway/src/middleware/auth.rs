@@ -173,16 +173,30 @@ fn entity_too_large(rid: &str) -> Response {
     )
 }
 
+fn unsupported_streaming(rid: &str, mode: &str) -> Response {
+    let msg = format!(
+        "x-amz-content-sha256 mode '{mode}' (chunked SigV4) is not yet \
+         supported by this server; disable chunked uploads or use \
+         UNSIGNED-PAYLOAD"
+    );
+    s3_error("NotImplemented", &msg, StatusCode::NOT_IMPLEMENTED, rid)
+}
+
 /// Classification of the `x-amz-content-sha256` header value.
 enum BodyHashCheck {
     /// Hash the body and compare against this 64-char hex digest.
     Verify(String),
-    /// Caller declared `UNSIGNED-PAYLOAD` or a `STREAMING-*` variant; skip.
+    /// Caller declared `UNSIGNED-PAYLOAD`; skip body hashing entirely.
     Skip,
     /// Header missing — reject (header auth only).
     MissingHeader,
     /// Header present but neither hex nor an allowed sentinel.
     InvalidValue,
+    /// `STREAMING-*` chunked-payload mode that Ferrox does not yet verify
+    /// per-chunk. Reject rather than silently accept — the chunk signatures
+    /// commit to body integrity, and skipping them would re-open the same
+    /// trust gap that body-hash verification just closed.
+    UnsupportedStreaming(String),
 }
 
 /// Decide what to do with the body for a request whose signature has already
@@ -200,10 +214,13 @@ fn classify_body_hash(claimed: &str, is_presigned: bool) -> BodyHashCheck {
         return BodyHashCheck::Skip;
     }
     // STREAMING-AWS4-HMAC-SHA256-PAYLOAD and STREAMING-UNSIGNED-PAYLOAD-TRAILER
-    // commit to body integrity via per-chunk signatures or trailing checksums;
-    // the chunked-payload verifier (out of scope here) handles those.
+    // commit to body integrity via per-chunk signatures / trailing checksums.
+    // We don't implement per-chunk verification yet, so reject explicitly
+    // rather than silently accept (which would let any payload through under
+    // a valid SigV4 header). AWS SDK clients can be configured to disable
+    // chunked uploads (`disable_request_compression` / similar knobs).
     if claimed.starts_with("STREAMING-") {
-        return BodyHashCheck::Skip;
+        return BodyHashCheck::UnsupportedStreaming(claimed.to_string());
     }
     if claimed.len() == 64
         && claimed
@@ -496,6 +513,9 @@ where
             let req = match classify_body_hash(&claimed_body_hash, is_presigned) {
                 BodyHashCheck::MissingHeader => return Ok(missing_content_sha256(&rid)),
                 BodyHashCheck::InvalidValue => return Ok(invalid_content_sha256(&rid)),
+                BodyHashCheck::UnsupportedStreaming(mode) => {
+                    return Ok(unsupported_streaming(&rid, &mode))
+                }
                 BodyHashCheck::Skip => req,
                 BodyHashCheck::Verify(claimed) => {
                     let (parts, body) = req.into_parts();

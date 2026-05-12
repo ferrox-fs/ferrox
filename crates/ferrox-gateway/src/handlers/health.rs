@@ -87,9 +87,11 @@ where
     M: MetaStore,
 {
     let body = state.metrics.render();
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "text/plain; version=0.0.4")
-        .body(Body::from(body))
-        .unwrap()
+    let mut resp = Response::new(Body::from(body));
+    *resp.status_mut() = StatusCode::OK;
+    resp.headers_mut().insert(
+        header::CONTENT_TYPE,
+        axum::http::HeaderValue::from_static("text/plain; version=0.0.4"),
+    );
+    resp
 }

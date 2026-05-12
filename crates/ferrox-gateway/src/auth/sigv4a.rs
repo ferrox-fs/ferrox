@@ -601,77 +601,80 @@ mod tests {
         assert_ne!(a.to_bytes(), c.to_bytes());
     }
 
-    /// Print the derived SigV4A signing scalar for AWS's documentation
-    /// fixture credentials. Run with:
+    /// AWS-reference SigV4A interop using the official `get-vanilla` test
+    /// fixture from <https://github.com/awslabs/aws-c-auth/tree/main/tests/aws-signing-test-suite/v4a/get-vanilla>.
     ///
-    ///   cargo test -p ferrox-gateway --lib \
-    ///     auth::sigv4a::tests::sigv4a_print_aws_known_vector \
-    ///     -- --ignored --nocapture
-    ///
-    /// The scalar should match the value produced by
-    /// <https://github.com/aws-samples/sigv4a-signing-examples>'s `python/sign.py`
-    /// for the same `(secret_key, access_key_id)` pair. If they diverge, the
-    /// KDF is wrong and every SigV4A signature will fail to verify against
-    /// real AWS-signed requests.
+    /// Two assertions:
+    /// 1. Our KDF derives the same P-256 public key (X, Y) as AWS publishes
+    ///    in `public-key.json`. If this fails, our KDF differs from AWS's and
+    ///    every real SigV4A signature will fail to verify.
+    /// 2. AWS's recorded DER signature verifies against AWS's recorded
+    ///    string-to-sign under the derived public key. Confirms our DER
+    ///    decoding + ECDSA verification path is wire-compatible.
     #[test]
-    #[ignore = "diagnostic: prints derived scalar; compare against AWS reference impl"]
-    fn sigv4a_print_aws_known_vector() {
-        let sk =
-            derive_sigv4a_signing_key("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY", "AKIDEXAMPLE")
-                .unwrap();
-        eprintln!("SigV4A scalar (hex) = {}", hex::encode(sk.to_bytes()));
-    }
+    fn sigv4a_aws_reference_get_vanilla() {
+        use p256::ecdsa::signature::Verifier;
 
-    /// Lock the SigV4A signing scalar for AWS's documentation fixture
-    /// credentials. The expected hex below was emitted by the local KDF and
-    /// will catch any future regression in
-    /// [`derive_sigv4a_signing_key`]. To verify it matches AWS's reference
-    /// implementation, run the `sigv4a_print_aws_known_vector` test above and
-    /// the AWS sample-repo signer with the same inputs.
-    #[test]
-    fn sigv4a_kdf_regression_lock() {
-        let sk =
-            derive_sigv4a_signing_key("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY", "AKIDEXAMPLE")
-                .unwrap();
-        let actual = hex::encode(sk.to_bytes());
-        // This value is produced by Ferrox's KDF and is locked here so that
-        // any future change which alters the derivation (and thus breaks AWS
-        // interop) trips this test. Replace with the AWS-reference value once
-        // you have run `python/sign.py` from aws-samples/sigv4a-signing-examples
-        // for the same (secret, akid) pair.
-        const FERROX_LOCKED: &str =
-            "7efc8c0e65a324242818c5a50c891c6060b6a00717b7ba3cbe3c5d765be9259c";
+        // From context.json (public AWS test fixture, not real credentials).
+        const SECRET: &str = "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY";
+        const AKID: &str = "AKIDEXAMPLE";
+
+        let sk = derive_sigv4a_signing_key(SECRET, AKID).unwrap();
+        let vk = VerifyingKey::from(sk.public_key());
+
+        // (1) Public key must match AWS's published expected values.
+        let point = vk.to_encoded_point(false);
+        let bytes = point.as_bytes();
+        // Uncompressed SEC1: 0x04 || X(32) || Y(32).
+        assert_eq!(bytes.len(), 65, "expected uncompressed SEC1 point");
+        assert_eq!(bytes[0], 0x04, "expected uncompressed tag");
+        let x_hex = hex::encode(&bytes[1..33]);
+        let y_hex = hex::encode(&bytes[33..65]);
         assert_eq!(
-            actual, FERROX_LOCKED,
-            "SigV4A KDF output drifted; if intentional, update FERROX_LOCKED \
-             AND verify against aws-samples/sigv4a-signing-examples first."
+            x_hex, "b6618f6a65740a99e650b33b6b4b5bd0d43b176d721a3edfea7e7d2d56d936b1",
+            "KDF-derived public-key X disagrees with AWS reference"
         );
+        assert_eq!(
+            y_hex, "865ed22a7eadc9c5cb9d2cbaca1b3699139fedc5043dc6661864218330c8e518",
+            "KDF-derived public-key Y disagrees with AWS reference"
+        );
+
+        // (2) AWS-recorded DER signature must verify against AWS-recorded
+        // string-to-sign under the derived public key.
+        let string_to_sign = "AWS4-ECDSA-P256-SHA256\n\
+                              20150830T123600Z\n\
+                              20150830/service/aws4_request\n\
+                              cf59db423e841c8b7e3444158185aa261b724a5c27cbe762676f3eed19f4dc02";
+        let sig_hex = "3045022018b4e277d0281864beb51d3600e23f88510ea5031d68ddfbb68614b82a5eb7d2\
+                       022100effb9c5f22ed9ef3ae0ab243d21f06bce82365bbb79529a07b6888c343ae5f8c";
+        let sig_bytes = hex::decode(sig_hex).unwrap();
+        let sig = DerSignature::from_bytes(&sig_bytes).unwrap();
+        vk.verify(string_to_sign.as_bytes(), &sig)
+            .expect("AWS get-vanilla signature must verify under derived key");
     }
 
-    /// AWS-reference SigV4A end-to-end vector slot.
-    ///
-    /// To populate:
-    /// 1. Clone <https://github.com/aws-samples/sigv4a-signing-examples>.
-    /// 2. Run `python/sign.py` against a known request.
-    /// 3. Replace the constants below with the real `Authorization` value,
-    ///    request headers, and `request_region`.
-    /// 4. Remove `#[ignore]`.
-    ///
-    /// Verification path is identical to the production middleware: parse
-    /// the header, build the canonical request from the recorded headers,
-    /// derive the signing key, verify the DER ECDSA signature.
+    /// Second AWS-reference vector: `post-vanilla`. Same credentials, POST
+    /// method, different canonical-request hash. Confirms wire-compat across
+    /// methods.
     #[test]
-    #[ignore = "needs AWS-generated SigV4A fixture; populate from aws-samples/sigv4a-signing-examples"]
-    fn sigv4a_aws_reference_end_to_end() {
-        // Replace these placeholders with the real fixture before un-ignoring.
-        const SECRET_KEY: &str = "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY";
-        const REQUEST_REGION: &str = "us-east-1";
-        const AUTH_HEADER: &str = "AWS4-ECDSA-P256-SHA256 Credential=PLACEHOLDER, \
-             SignedHeaders=PLACEHOLDER, Signature=PLACEHOLDER";
-        let parsed = SigV4AHeader::from_authorization_header(AUTH_HEADER).unwrap();
-        let _ = (SECRET_KEY, REQUEST_REGION, parsed);
-        // verify_sigv4a(method, path, query, &headers, body_sha256, SECRET_KEY,
-        //               &parsed, /*now=*/sig_ts, 900, REQUEST_REGION).unwrap();
+    fn sigv4a_aws_reference_post_vanilla() {
+        use p256::ecdsa::signature::Verifier;
+
+        let sk =
+            derive_sigv4a_signing_key("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY", "AKIDEXAMPLE")
+                .unwrap();
+        let vk = VerifyingKey::from(sk.public_key());
+
+        let string_to_sign = "AWS4-ECDSA-P256-SHA256\n\
+                              20150830T123600Z\n\
+                              20150830/service/aws4_request\n\
+                              806a9b01b76472cc6b66fff02630726d55f8b4ada6d2fd9b36eb0d710e215861";
+        let sig_hex = "3044022051fe398025aafbfc21d054bc78e5edfb96c9acb7fd272795565181d757815e47\
+                       02202e7b8d2b92324290b1d95f8b0fc5e333bb8b5e333f6160bcab39d7258156d224";
+        let sig_bytes = hex::decode(sig_hex).unwrap();
+        let sig = DerSignature::from_bytes(&sig_bytes).unwrap();
+        vk.verify(string_to_sign.as_bytes(), &sig)
+            .expect("AWS post-vanilla signature must verify under derived key");
     }
 
     fn build_request_headers(region_set: &str) -> Vec<(String, String)> {

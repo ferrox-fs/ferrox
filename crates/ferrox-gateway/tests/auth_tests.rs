@@ -35,6 +35,7 @@ async fn make_app() -> (TempDir, axum::Router) {
         clock_skew_secs: 900,
         region: "testregion".into(),
         sse_master_key: None,
+        max_sse_inline_bytes: 100 * 1024 * 1024,
         max_req_per_sec: 0,
     });
     let app = build_router(AppState {
@@ -232,6 +233,37 @@ async fn test_unsigned_payload_skips_body_hash_check() {
     let resp = app.oneshot(req).await.unwrap();
     // Reaches the handler — bucket missing → 404.
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn test_streaming_content_sha256_rejected_until_implemented() {
+    // Chunked-payload SigV4 (per-chunk signatures) commits to body integrity
+    // through chunk signatures, not the header digest. Until Ferrox verifies
+    // those chunks, accepting the body would bypass integrity. Reject with 501.
+    let (_t, app) = make_app().await;
+    let amz_date = chrono::Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
+    let host = "localhost";
+    let path = "/b/k";
+    // Sign with the streaming sentinel as the body hash.
+    let streaming_sha = "STREAMING-AWS4-HMAC-SHA256-PAYLOAD";
+    let auth = sign_put(path, host, &amz_date, streaming_sha);
+    let req = Request::builder()
+        .uri(path)
+        .method("PUT")
+        .header("host", host)
+        .header("x-amz-date", &amz_date)
+        .header("x-amz-content-sha256", streaming_sha)
+        .header("content-length", "5")
+        .header("authorization", auth)
+        .body(Body::from(&b"hello"[..]))
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_IMPLEMENTED);
+    let body = axum::body::to_bytes(resp.into_body(), 64 * 1024)
+        .await
+        .unwrap();
+    let xml = String::from_utf8_lossy(&body);
+    assert!(xml.contains("NotImplemented"), "got: {xml}");
 }
 
 #[tokio::test]

@@ -67,11 +67,15 @@ impl CustomerKey {
 
     /// Hex-encoded HMAC-SHA256 of the key (used to verify the same key is
     /// presented on subsequent GETs). Constant length, never reveals the key.
-    pub fn fingerprint(&self) -> String {
+    ///
+    /// HMAC-SHA256 accepts arbitrary key lengths, so the only error path is
+    /// dead in practice — surfaced as [`FerroxError::Internal`] to satisfy
+    /// the no-unwrap rule.
+    pub fn fingerprint(&self) -> Result<String, FerroxError> {
         let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(FINGERPRINT_SALT)
-            .expect("HMAC accepts any key length");
+            .map_err(|e| FerroxError::Internal(format!("SSE-C fingerprint HMAC init: {e}")))?;
         mac.update(&self.0);
-        hex::encode(mac.finalize().into_bytes())
+        Ok(hex::encode(mac.finalize().into_bytes()))
     }
 }
 
@@ -145,7 +149,7 @@ mod tests {
     fn test_fingerprint_stable_for_same_key() {
         let k1 = CustomerKey([0x77u8; 32]);
         let k2 = CustomerKey([0x77u8; 32]);
-        assert_eq!(k1.fingerprint(), k2.fingerprint());
+        assert_eq!(k1.fingerprint().unwrap(), k2.fingerprint().unwrap());
     }
 
     #[test]

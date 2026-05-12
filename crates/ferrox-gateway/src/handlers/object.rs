@@ -249,6 +249,17 @@ where
     let to_app = |e: FerroxError| AppError::new(e, resource.clone(), rid.to_string());
     let (ck, _key_b64, md5_b64) = parse_sse_c_headers(headers).map_err(to_app)?;
 
+    // SSE-C is whole-object AEAD: we must buffer plaintext before sealing.
+    // Reject early so an attacker can't force unbounded memory growth.
+    if declared_size > state.config.max_sse_inline_bytes {
+        return Err(to_app(FerroxError::EntityTooLarge(format!(
+            "SSE-C single-PUT body of {declared_size} bytes exceeds the \
+             max_sse_inline_bytes limit ({}); use multipart upload for \
+             larger encrypted objects",
+            state.config.max_sse_inline_bytes
+        ))));
+    }
+
     let plain_bytes: Bytes = body
         .into_data_stream()
         .map_err(|e| FerroxError::Internal(format!("body read: {e}")))
@@ -285,7 +296,7 @@ where
 
     let ciphertext = ferrox_crypto::sse_c::encrypt(&ck, &plain_bytes).map_err(to_app)?;
     let ct_len = ciphertext.len() as u64;
-    let fingerprint = ck.fingerprint();
+    let fingerprint = ck.fingerprint().map_err(to_app)?;
     drop(ck); // zeroes immediately
 
     let ct_bytes = Bytes::from(ciphertext);
@@ -371,6 +382,16 @@ where
             ))
         })?
         .clone();
+
+    // SSE-S3 is whole-object AEAD: cap inline body size before buffering.
+    if declared_size > state.config.max_sse_inline_bytes {
+        return Err(to_app(FerroxError::EntityTooLarge(format!(
+            "SSE-S3 single-PUT body of {declared_size} bytes exceeds the \
+             max_sse_inline_bytes limit ({}); use multipart upload for \
+             larger encrypted objects",
+            state.config.max_sse_inline_bytes
+        ))));
+    }
 
     // Buffer the full plaintext body.
     let plain_bytes: Bytes = body
@@ -523,7 +544,7 @@ where
                 "SSE-C object missing fingerprint".into(),
             ))
         })?;
-        if ck.fingerprint() != stored {
+        if ck.fingerprint().map_err(to_app)? != stored {
             return Err(to_app(FerroxError::AuthFailed(
                 "SSE-C key does not match the key used to encrypt the object".into(),
             )));
@@ -538,6 +559,11 @@ where
     let is_sse = record.sse_algorithm.as_deref() == Some("AES256");
 
     // For SSE-* or Range requests, buffer the raw storage bytes first.
+    // The whole-object AEAD constructions (SSE-S3, SSE-C) require complete
+    // ciphertext to verify the auth tag — there's no safe partial-decrypt
+    // path. Memory growth here is bounded by the PUT-time cap
+    // (`GatewayConfig::max_sse_inline_bytes`); SSE objects larger than the
+    // cap can't exist because the PUT path rejects them.
     if is_sse || is_sse_c || range_hdr.is_some() {
         let raw: Bytes = result
             .stream
@@ -649,7 +675,7 @@ where
                 "SSE-C object missing fingerprint".into(),
             ))
         })?;
-        if ck.fingerprint() != stored {
+        if ck.fingerprint().map_err(to_app)? != stored {
             return Err(to_app(FerroxError::AuthFailed(
                 "SSE-C key does not match".into(),
             )));

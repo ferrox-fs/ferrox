@@ -391,10 +391,15 @@ impl StorageBackend for DiskBackend {
         let tmp = data_path.with_extension("tmp");
         let mut out_file = File::create(&tmp).await?;
         let mut sha = Sha256::new();
-        let mut md5_full = Md5::new();
         let mut crc = Crc32cHasher::default();
+        let mut combined_md5 = Md5::new();
         let mut total_size: u64 = 0;
 
+        // Stream each part through a fixed-size buffer: read part bytes,
+        // feed all hashers and the output file inline. The previous impl
+        // accumulated the whole part in a Vec (up to 5 GiB) and then
+        // re-read it for the combined-ETag pass — both gone now.
+        let mut buf = vec![0u8; 256 * 1024];
         for (part_number, expected_etag) in parts {
             let part_path = staging.join(format!("part_{part_number:05}"));
             let mut part_file = File::open(&part_path).await.map_err(|e| {
@@ -404,30 +409,28 @@ impl StorageBackend for DiskBackend {
                     FerroxError::StorageIo(e)
                 }
             })?;
-            // Verify part ETag.
             let mut part_md5 = Md5::new();
-            let mut buf = vec![0u8; 64 * 1024];
-            let mut part_bytes: Vec<u8> = Vec::new();
             loop {
                 let n = part_file.read(&mut buf).await?;
                 if n == 0 {
                     break;
                 }
-                part_md5.update(&buf[..n]);
-                part_bytes.extend_from_slice(&buf[..n]);
+                let chunk = &buf[..n];
+                part_md5.update(chunk);
+                sha.update(chunk);
+                crc.write(chunk);
+                out_file.write_all(chunk).await?;
+                total_size += n as u64;
             }
-            let part_etag = format!("\"{}\"", hex::encode(part_md5.finalize()));
+            let part_md5_bytes = part_md5.finalize();
+            let part_etag = format!("\"{}\"", hex::encode(part_md5_bytes));
             if &part_etag != expected_etag {
                 return Err(FerroxError::ChecksumMismatch {
                     expected: expected_etag.clone(),
                     got: part_etag,
                 });
             }
-            sha.update(&part_bytes);
-            md5_full.update(&part_bytes);
-            crc.write(&part_bytes);
-            total_size += part_bytes.len() as u64;
-            out_file.write_all(&part_bytes).await?;
+            combined_md5.update(part_md5_bytes.as_slice());
         }
 
         if self.fsync {
@@ -440,15 +443,6 @@ impl StorageBackend for DiskBackend {
         let last_modified = OffsetDateTime::now_utc();
         // Multi-part ETag: md5 of concatenated part MD5s + "-{parts_count}".
         let parts_count = parts.len();
-        let mut combined_md5 = Md5::new();
-        for (part_number, _) in parts {
-            let part_path = staging.join(format!("part_{part_number:05}"));
-            if let Ok(data) = fs::read(&part_path).await {
-                let mut pm = Md5::new();
-                pm.update(&data);
-                combined_md5.update(pm.finalize().as_slice());
-            }
-        }
         let etag = format!("\"{}-{parts_count}\"", hex::encode(combined_md5.finalize()));
 
         let sidecar = Sidecar {

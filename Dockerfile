@@ -45,6 +45,9 @@ COPY crates/ferrox-gateway/Cargo.toml     crates/ferrox-gateway/Cargo.toml
 COPY crates/ferrox-cli/Cargo.toml         crates/ferrox-cli/Cargo.toml
 
 # Create empty lib/bin stubs so `cargo build` can cache dependency compilation.
+# Also stub bench files referenced by manifests — the .dockerignore excludes
+# `**/benches/` to keep the build context tight, but cargo still validates
+# every `[[bench]]` path during `build`.
 RUN for crate in ferrox-error ferrox-crypto ferrox-iam ferrox-meta \
                  ferrox-storage ferrox-s3-api ferrox-gateway; do \
         mkdir -p crates/$crate/src && \
@@ -53,13 +56,22 @@ RUN for crate in ferrox-error ferrox-crypto ferrox-iam ferrox-meta \
     mkdir -p crates/ferrox-cli/src/bin && \
     echo "fn main(){}" > crates/ferrox-cli/src/bin/ferroxd.rs && \
     echo "fn main(){}" > crates/ferrox-cli/src/bin/ferroxctl.rs && \
-    echo "// stub" > crates/ferrox-cli/src/lib.rs
+    echo "// stub" > crates/ferrox-cli/src/lib.rs && \
+    mkdir -p crates/ferrox-meta/benches crates/ferrox-gateway/benches && \
+    echo "fn main(){}" > crates/ferrox-meta/benches/sled_bench.rs && \
+    echo "fn main(){}" > crates/ferrox-gateway/benches/sigv4_bench.rs
 
 RUN cargo build --release --target x86_64-unknown-linux-musl --bin ferroxd \
     2>&1 | tail -5 || true
 
 # Now copy the real sources and rebuild (only changes compile).
 COPY crates/ crates/
+
+# Re-create bench stubs (the .dockerignore drops real benches/, so cargo
+# still needs *something* at those paths to satisfy the manifest).
+RUN mkdir -p crates/ferrox-meta/benches crates/ferrox-gateway/benches && \
+    echo "fn main(){}" > crates/ferrox-meta/benches/sled_bench.rs && \
+    echo "fn main(){}" > crates/ferrox-gateway/benches/sigv4_bench.rs
 
 # Touch files to ensure they are newer than stubs and get rebuilt.
 RUN find crates -name "*.rs" -exec touch {} +

@@ -120,6 +120,7 @@ mod tests {
             clock_skew_secs: 900,
             region: "testregion".into(),
             sse_master_key: None,
+            max_sse_inline_bytes: 100 * 1024 * 1024,
             max_req_per_sec: 0,
         });
         (
