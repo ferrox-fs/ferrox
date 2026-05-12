@@ -49,6 +49,19 @@ fn map_rocks(e: rocksdb::Error) -> FerroxError {
     FerroxError::MetaStore(e.to_string())
 }
 
+/// Resolve a column-family handle, mapping the `None` case (CF not registered
+/// at startup — programming error) to a [`FerroxError::MetaStore`] instead of
+/// panicking. Real callers can never observe the error path because [`RocksMeta::open`]
+/// always creates the CFs; this is defence in depth so a future refactor that
+/// adds a CF cannot regress to runtime panics.
+fn cf<'a>(
+    db: &'a rocksdb::DB,
+    name: &'static str,
+) -> Result<&'a rocksdb::ColumnFamily, FerroxError> {
+    db.cf_handle(name)
+        .ok_or_else(|| FerroxError::MetaStore(format!("column family '{name}' is not registered")))
+}
+
 fn enc<T: serde::Serialize>(v: &T) -> Result<Vec<u8>, FerroxError> {
     bincode::serde::encode_to_vec(v, bincode::config::standard())
         .map_err(|e| FerroxError::MetaStore(format!("encode: {e}")))
@@ -75,7 +88,7 @@ impl MetaStore for RocksMeta {
         let name = name.to_string();
         let owner = owner.to_string();
         tokio::task::spawn_blocking(move || -> Result<(), FerroxError> {
-            let cf = me.db.cf_handle(CF_BUCKETS).expect("buckets CF");
+            let cf = cf(&me.db, CF_BUCKETS)?;
             if me
                 .db
                 .get_cf(cf, name.as_bytes())
@@ -106,7 +119,7 @@ impl MetaStore for RocksMeta {
         let me = self.clone();
         let name = name.to_string();
         tokio::task::spawn_blocking(move || -> Result<BucketMeta, FerroxError> {
-            let cf = me.db.cf_handle(CF_BUCKETS).expect("buckets CF");
+            let cf = cf(&me.db, CF_BUCKETS)?;
             let v = me
                 .db
                 .get_cf(cf, name.as_bytes())
@@ -125,7 +138,7 @@ impl MetaStore for RocksMeta {
         let me = self.clone();
         let owner = owner.to_string();
         tokio::task::spawn_blocking(move || -> Result<Vec<BucketMeta>, FerroxError> {
-            let cf = me.db.cf_handle(CF_BUCKETS).expect("buckets CF");
+            let cf = cf(&me.db, CF_BUCKETS)?;
             let mut out = Vec::new();
             for kv in me.db.iterator_cf(cf, rocksdb::IteratorMode::Start) {
                 let (_, v) = kv.map_err(map_rocks)?;
@@ -144,7 +157,7 @@ impl MetaStore for RocksMeta {
         let me = self.clone();
         let name = name.to_string();
         tokio::task::spawn_blocking(move || -> Result<(), FerroxError> {
-            let cf = me.db.cf_handle(CF_BUCKETS).expect("buckets CF");
+            let cf = cf(&me.db, CF_BUCKETS)?;
             if me
                 .db
                 .get_cf(cf, name.as_bytes())
@@ -171,7 +184,7 @@ impl MetaStore for RocksMeta {
         let me = self.clone();
         let k = obj_key(bucket, key);
         tokio::task::spawn_blocking(move || -> Result<(), FerroxError> {
-            let cf = me.db.cf_handle(CF_OBJECTS).expect("objects CF");
+            let cf = cf(&me.db, CF_OBJECTS)?;
             me.db.put_cf(cf, k, enc(&meta)?).map_err(map_rocks)
         })
         .await
@@ -184,7 +197,7 @@ impl MetaStore for RocksMeta {
         let bucket_s = bucket.to_string();
         let key_s = key.to_string();
         tokio::task::spawn_blocking(move || -> Result<ObjectRecord, FerroxError> {
-            let cf = me.db.cf_handle(CF_OBJECTS).expect("objects CF");
+            let cf = cf(&me.db, CF_OBJECTS)?;
             let v = me
                 .db
                 .get_cf(cf, &k)
@@ -203,7 +216,7 @@ impl MetaStore for RocksMeta {
         let me = self.clone();
         let k = obj_key(bucket, key);
         tokio::task::spawn_blocking(move || -> Result<(), FerroxError> {
-            let cf = me.db.cf_handle(CF_OBJECTS).expect("objects CF");
+            let cf = cf(&me.db, CF_OBJECTS)?;
             me.db.delete_cf(cf, k).map_err(map_rocks)
         })
         .await
@@ -222,7 +235,7 @@ impl MetaStore for RocksMeta {
         let prefix = prefix.map(str::to_string);
         let continuation = continuation.map(str::to_string);
         tokio::task::spawn_blocking(move || -> Result<ListResult, FerroxError> {
-            let cf = me.db.cf_handle(CF_OBJECTS).expect("objects CF");
+            let cf = cf(&me.db, CF_OBJECTS)?;
             let mut scan_prefix = bucket.as_bytes().to_vec();
             scan_prefix.push(SEP);
             if let Some(p) = &prefix {
@@ -283,7 +296,7 @@ impl MetaStore for RocksMeta {
         let me = self.clone();
         let uid = upload_id.to_string();
         tokio::task::spawn_blocking(move || -> Result<(), FerroxError> {
-            let cf = me.db.cf_handle(CF_MULTIPART).expect("multipart CF");
+            let cf = cf(&me.db, CF_MULTIPART)?;
             me.db
                 .put_cf(cf, uid.as_bytes(), enc(&meta)?)
                 .map_err(map_rocks)
@@ -296,7 +309,7 @@ impl MetaStore for RocksMeta {
         let me = self.clone();
         let uid = upload_id.to_string();
         tokio::task::spawn_blocking(move || -> Result<MultipartMeta, FerroxError> {
-            let cf = me.db.cf_handle(CF_MULTIPART).expect("multipart CF");
+            let cf = cf(&me.db, CF_MULTIPART)?;
             let v = me
                 .db
                 .get_cf(cf, uid.as_bytes())
@@ -315,7 +328,7 @@ impl MetaStore for RocksMeta {
         let me = self.clone();
         let uid = upload_id.to_string();
         tokio::task::spawn_blocking(move || -> Result<(), FerroxError> {
-            let cf = me.db.cf_handle(CF_MULTIPART).expect("multipart CF");
+            let cf = cf(&me.db, CF_MULTIPART)?;
             me.db.delete_cf(cf, uid.as_bytes()).map_err(map_rocks)
         })
         .await
@@ -330,7 +343,7 @@ impl MetaStore for RocksMeta {
         let bucket = bucket.to_string();
         tokio::task::spawn_blocking(
             move || -> Result<Vec<(String, MultipartMeta)>, FerroxError> {
-                let cf = me.db.cf_handle(CF_MULTIPART).expect("multipart CF");
+                let cf = cf(&me.db, CF_MULTIPART)?;
                 let mut out = Vec::new();
                 for kv in me.db.iterator_cf(cf, rocksdb::IteratorMode::Start) {
                     let (k, v) = kv.map_err(map_rocks)?;
@@ -396,7 +409,7 @@ impl RocksMeta {
         let me = self.clone();
         let bucket = bucket.to_string();
         tokio::task::spawn_blocking(move || -> Result<(), FerroxError> {
-            let cf = me.db.cf_handle(CF_BUCKETS).expect("buckets CF");
+            let cf = cf(&me.db, CF_BUCKETS)?;
             let v = me
                 .db
                 .get_cf(cf, bucket.as_bytes())

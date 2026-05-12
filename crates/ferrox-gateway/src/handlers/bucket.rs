@@ -3,7 +3,7 @@
 
 use axum::body::Body;
 use axum::extract::{Path, State};
-use axum::http::{HeaderValue, StatusCode};
+use axum::http::StatusCode;
 use axum::response::Response;
 use bytes::Bytes;
 use ferrox_error::FerroxError;
@@ -13,7 +13,7 @@ use ferrox_storage::StorageBackend;
 use http_body_util::Full;
 
 use crate::error::AppError;
-use crate::middleware::RequestId;
+use crate::middleware::{rid_header, RequestId};
 use crate::state::AppState;
 use ferrox_s3_api::names::validate_bucket_name;
 
@@ -114,7 +114,7 @@ where
     let mut resp = Response::new(Body::empty());
     *resp.status_mut() = StatusCode::NO_CONTENT;
     resp.headers_mut()
-        .insert("x-amz-request-id", HeaderValue::from_str(&rid).unwrap());
+        .insert("x-amz-request-id", rid_header(&rid));
     Ok(resp)
 }
 
@@ -174,14 +174,23 @@ where
     validate_bucket_name(&bucket).map_err(to_app)?;
     ferrox_s3_api::names::validate_object_key(&key).map_err(to_app)?;
 
-    state.storage.delete(&bucket, &key).await.map_err(to_app)?;
-    // Best-effort meta removal — object may not have metadata yet.
+    // S3 DELETE Object is idempotent: missing object → 204. Missing bucket
+    // is still a hard 404 (NoSuchBucket), so check bucket existence first.
+    state.meta.get_bucket(&bucket).await.map_err(to_app)?;
+
+    match state.storage.delete(&bucket, &key).await {
+        Ok(()) => {}
+        // Object already absent — that's fine; the desired post-state holds.
+        Err(FerroxError::NotFound { key: Some(_), .. }) => {}
+        Err(other) => return Err(to_app(other)),
+    }
+    // Best-effort meta removal — record may already be absent.
     let _ = state.meta.delete_object_meta(&bucket, &key).await;
 
     let mut resp = Response::new(Body::empty());
     *resp.status_mut() = StatusCode::NO_CONTENT;
     resp.headers_mut()
-        .insert("x-amz-request-id", HeaderValue::from_str(&rid).unwrap());
+        .insert("x-amz-request-id", rid_header(&rid));
     Ok(resp)
 }
 
@@ -364,7 +373,7 @@ where
     let mut resp = Response::new(Body::empty());
     *resp.status_mut() = StatusCode::OK;
     resp.headers_mut()
-        .insert("x-amz-request-id", HeaderValue::from_str(&rid).unwrap());
+        .insert("x-amz-request-id", rid_header(&rid));
     Ok(resp)
 }
 

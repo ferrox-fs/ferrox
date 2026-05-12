@@ -7,7 +7,7 @@ body:
     attributes:
       label: Ferrox version
       description: Output of `ferroxd --version` or the Docker tag.
-      placeholder: "v0.1.0 / ghcr.io/ferrox-rs/ferrox:0.1.0"
+      placeholder: "v1.0.0 / ghcr.io/ferrox-rs/ferrox:1.0.0"
     validations: { required: true }
   - type: input
     id: os

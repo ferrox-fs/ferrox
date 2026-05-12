@@ -37,7 +37,57 @@ Ferrox accepts SigV4 in the query string (`X-Amz-Algorithm=AWS4-HMAC-SHA256`, `X
 
 ## SigV4A (multi-region)
 
-SigV4A uses ECDSA-P256 instead of HMAC-chaining, which lets one signature cover multiple regions. Ferrox accepts `Authorization: AWS4-ECDSA-P256-SHA256` headers and verifies against an HKDF-derived P-256 key. Used primarily for cross-region `CopyObject`.
+SigV4A uses ECDSA-P256 / SHA-256 instead of HMAC-chaining, so one signature can cover multiple regions. Ferrox accepts `Authorization: AWS4-ECDSA-P256-SHA256 …` and `X-Amz-Algorithm=AWS4-ECDSA-P256-SHA256` (presigned URLs). SigV4 remains the default; SigV4A is opt-in for clients that need multi-region scope.
+
+### Differences from SigV4
+
+| | SigV4 | SigV4A |
+|---|---|---|
+| Algorithm | `AWS4-HMAC-SHA256` | `AWS4-ECDSA-P256-SHA256` |
+| Credential scope | `AKID/YYYYMMDD/{region}/{service}/aws4_request` | `AKID/YYYYMMDD/{service}/aws4_request` (no region) |
+| Region source | Credential scope | Signed `x-amz-region-set` header (or `X-Amz-Region-Set` query param) |
+| Key derivation | HMAC-chain over secret + (date, region, service) | NIST SP 800-108 counter-mode HMAC-SHA256 over `("AWS4A" \|\| secret)`, retrying for a valid P-256 scalar in `[1, n-1]` |
+| Signature wire format | hex(HMAC-SHA256) — 64 hex chars | hex(DER ECDSA) — variable length |
+
+### Required headers / query params
+
+`x-amz-region-set` MUST be present **and** listed in `SignedHeaders`. It accepts:
+
+- exact regions: `us-east-1`
+- comma-separated lists: `us-east-1,eu-west-1`
+- trailing wildcard: `us-*`
+- global wildcard: `*`
+
+The gateway's configured `--region` (default `us-east-1`) must be matched by at least one entry.
+
+### Service scope
+
+Ferrox supports `s3` only. Other service scopes are rejected.
+
+### Wire example
+
+```
+Authorization: AWS4-ECDSA-P256-SHA256
+  Credential=AKIA…/20260506/s3/aws4_request,
+  SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-region-set,
+  Signature=3045022100…
+x-amz-region-set: us-*
+x-amz-date: 20260506T000000Z
+```
+
+### Presigned SigV4A
+
+```
+?X-Amz-Algorithm=AWS4-ECDSA-P256-SHA256
+&X-Amz-Credential=AKIA%2F20260506%2Fs3%2Faws4_request
+&X-Amz-Date=20260506T000000Z
+&X-Amz-Expires=900
+&X-Amz-Region-Set=us-%2A
+&X-Amz-SignedHeaders=host%3Bx-amz-region-set
+&X-Amz-Signature=3045022100…
+```
+
+Body hash is always `UNSIGNED-PAYLOAD`. Expiry is enforced against `X-Amz-Date + X-Amz-Expires`.
 
 ## Clock skew
 

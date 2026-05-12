@@ -21,6 +21,10 @@ pub struct GatewayConfig {
     pub fsync: bool,
     /// Allowed clock skew between client and server, in seconds.
     pub clock_skew_secs: i64,
+    /// AWS region this gateway represents. SigV4 requires the request scope's
+    /// region segment to match (case-insensitive). SigV4A uses this value to
+    /// match against the signed `x-amz-region-set`.
+    pub region: String,
     /// Optional 32-byte master key for SSE-S3. `None` disables SSE-S3.
     pub sse_master_key: Option<ferrox_crypto::SseMasterKey>,
     /// Per-access-key requests/second limit. `0` disables rate limiting.

@@ -45,6 +45,8 @@ md-5             = { workspace = true }
 hmac             = { workspace = true }
 base64           = { workspace = true }
 crc32c           = { workspace = true }
+p256             = { workspace = true }
+elliptic-curve   = { workspace = true }
 
 time   = { workspace = true }
 chrono = { workspace = true }
@@ -68,6 +70,7 @@ sha2 = { workspace = true }
 hex = { workspace = true }
 chrono = { workspace = true }
 criterion = { workspace = true }
+p256 = { workspace = true }
 
 [[bench]]
 name = "sigv4_bench"

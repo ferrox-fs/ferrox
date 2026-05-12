@@ -39,23 +39,20 @@ pub struct Metrics {
     pub multipart_pending: Gauge,
 }
 
-impl Default for Metrics {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Metrics {
-    /// Build a new metrics registry. Panics if metric registration fails (only
-    /// possible on duplicate registration in the same process — not user input).
-    pub fn new() -> Self {
+    /// Build a new metrics registry.
+    ///
+    /// Returns `Err(prometheus::Error)` if the Prometheus crate rejects a
+    /// metric description or registration — possible on duplicate names in
+    /// the same process. Production callers should propagate via `?`; the
+    /// daemon's `main()` aborts startup on failure.
+    pub fn new() -> Result<Self, prometheus::Error> {
         let registry = Arc::new(Registry::new());
 
         let requests_total = IntCounterVec::new(
             Opts::new("ferrox_requests_total", "S3 requests handled"),
             &["method", "endpoint", "status"],
-        )
-        .expect("metric registration");
+        )?;
         let request_duration = HistogramVec::new(
             HistogramOpts::new(
                 "ferrox_request_duration_seconds",
@@ -63,38 +60,31 @@ impl Metrics {
             )
             .buckets(vec![0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0]),
             &["method", "endpoint"],
-        )
-        .expect("metric registration");
+        )?;
         let bytes_in = IntCounterVec::new(
             Opts::new("ferrox_bytes_in_total", "Bytes received per bucket"),
             &["bucket"],
-        )
-        .expect("metric registration");
+        )?;
         let bytes_out = IntCounterVec::new(
             Opts::new("ferrox_bytes_out_total", "Bytes sent per bucket"),
             &["bucket"],
-        )
-        .expect("metric registration");
+        )?;
         let objects_total = IntGaugeVec::new(
             Opts::new("ferrox_objects_total", "Objects per bucket"),
             &["bucket"],
-        )
-        .expect("metric registration");
+        )?;
         let storage_bytes = GaugeVec::new(
             Opts::new("ferrox_storage_bytes", "Logical bytes stored per bucket"),
             &["bucket"],
-        )
-        .expect("metric registration");
+        )?;
         let active_connections = Gauge::new(
             "ferrox_active_connections",
             "Currently in-flight HTTP requests",
-        )
-        .expect("metric registration");
+        )?;
         let multipart_pending = Gauge::new(
             "ferrox_multipart_pending_total",
             "In-progress multipart uploads",
-        )
-        .expect("metric registration");
+        )?;
 
         for m in [
             Box::new(requests_total.clone()) as Box<dyn prometheus::core::Collector>,
@@ -106,10 +96,10 @@ impl Metrics {
             Box::new(active_connections.clone()),
             Box::new(multipart_pending.clone()),
         ] {
-            registry.register(m).expect("metric registration");
+            registry.register(m)?;
         }
 
-        Self {
+        Ok(Self {
             registry,
             requests_total,
             request_duration,
@@ -119,7 +109,7 @@ impl Metrics {
             storage_bytes,
             active_connections,
             multipart_pending,
-        }
+        })
     }
 
     /// Render the registry in the Prometheus text exposition format.

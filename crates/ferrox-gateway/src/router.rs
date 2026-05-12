@@ -4,8 +4,8 @@
 //! mounted under generic [`AppState<S, M>`](crate::state::AppState).
 //!
 //! Middleware stack (outermost first):
-//! 1. [`MetricsLayer`](crate::metrics::MetricsLayer) — request counter + latency histogram
-//! 2. [`TraceLayer`](tower_http::trace::TraceLayer) — request/response logging
+//! 1. [`MetricsLayer`] — request counter + latency histogram
+//! 2. [`TraceLayer`] — request/response logging
 //! 3. [`SigV4AuthLayer`] — SigV4 verification + per-key rate limiting
 //! 4. [`RequestIdLayer`] — UUIDv4 attached as `x-amz-request-id`
 
@@ -40,6 +40,7 @@ where
         access_key: state.config.access_key.clone(),
         secret_key: state.config.secret_key.clone(),
         clock_skew_secs: state.config.clock_skew_secs,
+        region: state.config.region.clone(),
     })
     .with_rate_limiter(state.rate_limiter.clone());
 
@@ -117,6 +118,7 @@ mod tests {
             secret_key: "SECRET".into(),
             fsync: false,
             clock_skew_secs: 900,
+            region: "testregion".into(),
             sse_master_key: None,
             max_req_per_sec: 0,
         });
@@ -126,7 +128,7 @@ mod tests {
                 storage,
                 meta,
                 config,
-                metrics: Metrics::new(),
+                metrics: Metrics::new().unwrap(),
                 rate_limiter: None,
             },
         )

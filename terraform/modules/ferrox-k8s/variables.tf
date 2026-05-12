@@ -20,7 +20,7 @@ variable "chart_name" {
 
 variable "chart_version" {
   type    = string
-  default = "0.1.0"
+  default = "1.0.0"
 }
 
 variable "image_repository" {

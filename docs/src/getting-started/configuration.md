@@ -18,6 +18,7 @@ Configuration is layered; later sources override earlier ones:
 | `--access-key` | `FERROX_ACCESS_KEY` | `minioadmin` | Single-tenant access key |
 | `--secret-key` | `FERROX_SECRET_KEY` | `minioadmin` | Secret bound to access key |
 | `--clock-skew-secs` | `FERROX_CLOCK_SKEW_SECS` | `900` | SigV4 clock skew tolerance |
+| `--region` | `FERROX_REGION` | `us-east-1` | Region this gateway serves; used for SigV4 scope match and SigV4A `x-amz-region-set` match |
 | `--fsync` | `FERROX_FSYNC` | `true` | Call `fsync` after every write |
 | `--sse-master-key` | `FERROX_SSE_MASTER_KEY` | _unset_ | 64-hex master key for SSE-S3 |
 | `--max-req-per-sec` | `FERROX_MAX_REQ_PER_SEC` | `0` | Per-access-key budget; 0 disables |
@@ -33,6 +34,7 @@ tls_key  = "/etc/ferrox/server.key"
 access_key = "MockAccessKey"
 secret_key = "MOCKxSECRETxKEYxFORxTESTSxONLYx123456789"
 clock_skew_secs = 900
+region = "us-east-1"
 fsync = true
 sse_master_key = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 max_req_per_sec = 1000

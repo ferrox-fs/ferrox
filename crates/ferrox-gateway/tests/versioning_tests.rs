@@ -40,6 +40,7 @@ async fn make_env() -> TestEnv {
         secret_key: SECRET_KEY.into(),
         fsync: false,
         clock_skew_secs: 900,
+        region: "testregion".into(),
         sse_master_key: None,
         max_req_per_sec: 0,
     });
@@ -167,7 +168,7 @@ async fn test_get_bucket_versioning_unset_returns_empty_status() {
         storage: env.storage,
         meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 
@@ -210,7 +211,7 @@ async fn test_put_bucket_versioning_enabled_roundtrip() {
         storage: env.storage,
         meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 
@@ -285,7 +286,7 @@ async fn test_put_bucket_versioning_nonexistent_bucket_returns_404() {
         storage: env.storage,
         meta: env.meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 

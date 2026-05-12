@@ -2,17 +2,15 @@
 
 use axum::body::{to_bytes, Body};
 use axum::extract::{Path, State};
-use axum::http::{HeaderValue, StatusCode};
+use axum::http::StatusCode;
 use axum::response::Response;
-use bytes::Bytes;
 use ferrox_error::FerroxError;
 use ferrox_meta::{EncryptionConfig, MetaStore};
 use ferrox_s3_api::names::validate_bucket_name;
 use ferrox_s3_api::xml::{encryption_configuration, parse_encryption_configuration};
 use ferrox_storage::StorageBackend;
-use http_body_util::Full;
 
-use crate::error::AppError;
+use crate::error::{empty_response, xml_response, AppError};
 use crate::middleware::RequestId;
 use crate::state::AppState;
 
@@ -54,11 +52,7 @@ where
         .await
         .map_err(to_app)?;
 
-    let mut resp = Response::new(Body::empty());
-    *resp.status_mut() = StatusCode::OK;
-    resp.headers_mut()
-        .insert("x-amz-request-id", HeaderValue::from_str(&rid).unwrap());
-    Ok(resp)
+    Ok(empty_response(StatusCode::OK, &rid))
 }
 
 /// `GET /{bucket}?encryption` — fetch default SSE policy.
@@ -86,10 +80,5 @@ where
     })?;
 
     let xml = encryption_configuration(&cfg.algorithm);
-    Ok(Response::builder()
-        .status(StatusCode::OK)
-        .header("content-type", "application/xml")
-        .header("x-amz-request-id", &rid)
-        .body(Body::new(Full::new(Bytes::from(xml))))
-        .unwrap())
+    Ok(xml_response(StatusCode::OK, &rid, xml))
 }

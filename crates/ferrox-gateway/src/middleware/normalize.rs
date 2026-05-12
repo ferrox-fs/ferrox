@@ -1,7 +1,9 @@
 //! Service-level path normalisation that runs BEFORE axum routing.
 //!
 //! [`NormalizeAndPreserveLayer`] saves the original request URI as an
-//! [`OriginalSignedUri`](crate::middleware::auth::OriginalSignedUri) extension
+//! [`OriginalSignedUri`] extension
+//!
+//! [`OriginalSignedUri`]: crate::middleware::auth::OriginalSignedUri
 //! and strips a trailing slash from `req.uri()` so the axum router matches
 //! `/{bucket}` for `/bucket/` (the form sent by AWS SDK CreateBucket).
 //!

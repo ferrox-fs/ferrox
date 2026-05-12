@@ -15,13 +15,13 @@ use md5::Digest as _;
 use time::OffsetDateTime;
 
 use crate::error::AppError;
-use crate::middleware::RequestId;
+use crate::middleware::{rid_header, RequestId};
 use crate::state::AppState;
 
 /// `PUT /{bucket}/{*key}` — store an object.
 ///
-/// When the `x-amz-copy-source` header is present, delegates to
-/// [`copy_object_inner`] for a server-side copy without reading the request body.
+/// When the `x-amz-copy-source` header is present, delegates to the internal
+/// `copy_object_inner` path for a server-side copy without reading the request body.
 /// When `x-amz-server-side-encryption: AES256` is present, encrypts the body
 /// with AES-256-GCM (SSE-S3) before writing.
 pub async fn put_object<S, M>(
@@ -70,7 +70,7 @@ where
         None => {
             let mut resp = (StatusCode::LENGTH_REQUIRED, "Length Required").into_response();
             resp.headers_mut()
-                .insert("x-amz-request-id", HeaderValue::from_str(&rid).unwrap());
+                .insert("x-amz-request-id", rid_header(&rid));
             return Ok(resp);
         }
     };
@@ -198,7 +198,7 @@ where
             .map_err(|e| to_app(FerroxError::Internal(format!("etag header build: {e}"))))?,
     );
     resp.headers_mut()
-        .insert("x-amz-request-id", HeaderValue::from_str(&rid).unwrap());
+        .insert("x-amz-request-id", rid_header(&rid));
     Ok(resp)
 }
 
@@ -319,20 +319,25 @@ where
 
     let mut resp = Response::new(Body::empty());
     *resp.status_mut() = StatusCode::OK;
-    resp.headers_mut().insert(
-        HeaderName::from_static("etag"),
-        HeaderValue::from_str(&etag).unwrap(),
-    );
+    // etag is hex of MD5 (always ASCII). Convert defensively — if the value
+    // ever fails to parse as a HeaderValue, the response is still well-formed
+    // without the etag header (clients re-fetch via HEAD).
+    if let Ok(v) = HeaderValue::from_str(&etag) {
+        resp.headers_mut()
+            .insert(HeaderName::from_static("etag"), v);
+    }
     resp.headers_mut().insert(
         HeaderName::from_static("x-amz-server-side-encryption-customer-algorithm"),
         HeaderValue::from_static("AES256"),
     );
-    resp.headers_mut().insert(
-        HeaderName::from_static("x-amz-server-side-encryption-customer-key-md5"),
-        HeaderValue::from_str(&md5_b64).unwrap(),
-    );
+    if let Ok(v) = HeaderValue::from_str(&md5_b64) {
+        resp.headers_mut().insert(
+            HeaderName::from_static("x-amz-server-side-encryption-customer-key-md5"),
+            v,
+        );
+    }
     resp.headers_mut()
-        .insert("x-amz-request-id", HeaderValue::from_str(rid).unwrap());
+        .insert("x-amz-request-id", rid_header(rid));
     Ok(resp)
 }
 
@@ -451,7 +456,7 @@ where
         HeaderValue::from_static("AES256"),
     );
     resp.headers_mut()
-        .insert("x-amz-request-id", HeaderValue::from_str(rid).unwrap());
+        .insert("x-amz-request-id", rid_header(rid));
     Ok(resp)
 }
 

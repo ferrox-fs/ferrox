@@ -4,7 +4,7 @@
 
 use axum::body::Body;
 use axum::extract::{Path, State};
-use axum::http::{HeaderValue, StatusCode};
+use axum::http::StatusCode;
 use axum::response::Response;
 use bytes::Bytes;
 use ferrox_error::FerroxError;
@@ -17,8 +17,21 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::error::AppError;
-use crate::middleware::RequestId;
+use crate::middleware::{rid_header, RequestId};
 use crate::state::AppState;
+
+/// AWS S3 multipart constraints (single source of truth — referenced by
+/// `upload_part` and `complete_multipart_upload`).
+mod limits {
+    /// Smallest non-final part. 5 MiB.
+    pub const MIN_PART_BYTES: u64 = 5 * 1024 * 1024;
+    /// Largest single part. 5 GiB.
+    pub const MAX_PART_BYTES: u64 = 5 * 1024 * 1024 * 1024;
+    /// Largest completed multipart object. 5 TiB.
+    pub const MAX_OBJECT_BYTES: u64 = 5 * 1024 * 1024 * 1024 * 1024;
+    /// Maximum part number (and therefore parts per upload).
+    pub const MAX_PART_NUMBER: u32 = 10_000;
+}
 
 /// `POST /{bucket}/{*key}?uploads` — initiate a multipart upload.
 pub async fn initiate_multipart_upload<S, M>(
@@ -111,10 +124,11 @@ where
         .and_then(|v| v.parse().ok())
         .ok_or_else(|| to_app(FerroxError::InvalidRequest("invalid partNumber".into())))?;
 
-    if !(1..=10000).contains(&part_number) {
-        return Err(to_app(FerroxError::InvalidRequest(
-            "partNumber must be 1-10000".into(),
-        )));
+    if !(1..=limits::MAX_PART_NUMBER).contains(&part_number) {
+        return Err(to_app(FerroxError::InvalidRequest(format!(
+            "partNumber must be 1-{}",
+            limits::MAX_PART_NUMBER
+        ))));
     }
 
     // Verify upload exists.
@@ -129,6 +143,15 @@ where
         .and_then(|v| v.to_str().ok())
         .and_then(|s| s.parse().ok())
         .unwrap_or(0);
+
+    // S3 caps a single part at 5 GiB. Reject before streaming so the client
+    // sees the failure immediately rather than after a long upload.
+    if size > limits::MAX_PART_BYTES {
+        return Err(to_app(FerroxError::EntityTooLarge(format!(
+            "part exceeds maximum size of {} bytes",
+            limits::MAX_PART_BYTES
+        ))));
+    }
 
     let stream = body
         .into_data_stream()
@@ -187,12 +210,62 @@ where
     let parts = ferrox_s3_api::xml::parse_complete_multipart(&raw)
         .map_err(|msg| to_app(FerroxError::InvalidRequest(format!("MalformedXML: {msg}"))))?;
 
-    // Verify parts are in ascending order.
+    // Verify parts are in ascending order, with valid part numbers.
     for w in parts.windows(2) {
         if w[0].0 >= w[1].0 {
             return Err(to_app(FerroxError::InvalidRequest(
                 "parts must be in ascending order".into(),
             )));
+        }
+    }
+    if parts.is_empty() {
+        return Err(to_app(FerroxError::InvalidRequest(
+            "CompleteMultipartUpload requires at least one part".into(),
+        )));
+    }
+    if let Some(&(n, _)) = parts
+        .iter()
+        .find(|&&(n, _)| !(1..=limits::MAX_PART_NUMBER).contains(&n))
+    {
+        return Err(to_app(FerroxError::InvalidRequest(format!(
+            "invalid partNumber {n}: must be 1-{}",
+            limits::MAX_PART_NUMBER
+        ))));
+    }
+
+    // Walk the staged parts to enforce S3 size constraints. Every part except
+    // the LAST must be at least 5 MiB; total must not exceed 5 TiB.
+    let staged = state.storage.list_parts(&upload_id).await.map_err(to_app)?;
+    let staged_by_number: std::collections::HashMap<u32, u64> =
+        staged.iter().map(|(n, sz, _, _)| (*n, *sz)).collect();
+    let mut total: u64 = 0;
+    for (i, (part_no, _etag)) in parts.iter().enumerate() {
+        let size = *staged_by_number.get(part_no).ok_or_else(|| {
+            to_app(FerroxError::InvalidRequest(format!(
+                "part {part_no} listed in CompleteMultipartUpload was never uploaded"
+            )))
+        })?;
+        let is_last = i + 1 == parts.len();
+        if !is_last && size < limits::MIN_PART_BYTES {
+            return Err(to_app(FerroxError::EntityTooSmall(format!(
+                "part {part_no} is {size} bytes; non-final parts must be at least {} bytes",
+                limits::MIN_PART_BYTES
+            ))));
+        }
+        // Per-part max already enforced at upload time; re-check here in case
+        // an older client predates that gate.
+        if size > limits::MAX_PART_BYTES {
+            return Err(to_app(FerroxError::EntityTooLarge(format!(
+                "part {part_no} is {size} bytes; max is {}",
+                limits::MAX_PART_BYTES
+            ))));
+        }
+        total = total.saturating_add(size);
+        if total > limits::MAX_OBJECT_BYTES {
+            return Err(to_app(FerroxError::EntityTooLarge(format!(
+                "completed object would exceed max size of {} bytes",
+                limits::MAX_OBJECT_BYTES
+            ))));
         }
     }
 
@@ -275,7 +348,7 @@ where
     let mut resp = Response::new(Body::empty());
     *resp.status_mut() = StatusCode::NO_CONTENT;
     resp.headers_mut()
-        .insert("x-amz-request-id", HeaderValue::from_str(&rid).unwrap());
+        .insert("x-amz-request-id", rid_header(&rid));
     Ok(resp)
 }
 

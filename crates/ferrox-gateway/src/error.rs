@@ -8,7 +8,31 @@ use ferrox_error::FerroxError;
 use ferrox_s3_api::error as s3_error;
 use http_body_util::Full;
 
-use crate::middleware::RequestId;
+use crate::middleware::{rid_header, RequestId};
+
+/// Build an `application/xml` response carrying `xml`, status `status`, and
+/// the `x-amz-request-id` header. Infallible — `Response::new` cannot fail
+/// and `HeaderValue::from_static` is checked at compile time.
+pub fn xml_response(status: StatusCode, rid: &str, xml: impl Into<Bytes>) -> Response {
+    let mut resp = Response::new(axum::body::Body::new(Full::new(xml.into())));
+    *resp.status_mut() = status;
+    resp.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/xml"),
+    );
+    resp.headers_mut()
+        .insert("x-amz-request-id", rid_header(rid));
+    resp
+}
+
+/// Build an empty-body response with a status and `x-amz-request-id` header.
+pub fn empty_response(status: StatusCode, rid: &str) -> Response {
+    let mut resp = Response::new(axum::body::Body::empty());
+    *resp.status_mut() = status;
+    resp.headers_mut()
+        .insert("x-amz-request-id", rid_header(rid));
+    resp
+}
 
 /// Newtype around [`FerroxError`] that implements [`IntoResponse`] so handlers
 /// can `?` straight out of `Result<_, AppError>`.

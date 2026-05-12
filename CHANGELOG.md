@@ -31,6 +31,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `BucketMeta` and `ObjectRecord` extended with `tags`, `cors_rules`, `encryption`, `notifications`, `sse_c_key_hmac` fields. Existing records remain readable thanks to `#[serde(default)]`.
 
-## [0.1.0] — Initial Phase 0+1
+## [1.0.0] — Initial Phase 0+1
 
 Initial Phase 0 (foundation) and Phase 1 (core S3) features. See `README.md` and `phase1.md` for the full inventory.

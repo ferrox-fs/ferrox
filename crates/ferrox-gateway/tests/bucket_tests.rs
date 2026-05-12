@@ -41,6 +41,7 @@ async fn make_env() -> TestEnv {
         secret_key: SECRET_KEY.into(),
         fsync: false,
         clock_skew_secs: 900,
+        region: "testregion".into(),
         sse_master_key: None,
         max_req_per_sec: 0,
     });
@@ -107,7 +108,7 @@ async fn test_create_bucket_returns_200() {
         storage: env.storage,
         meta: env.meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 
@@ -137,7 +138,7 @@ async fn test_head_bucket_exists_returns_200() {
         storage: env.storage,
         meta: env.meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 
@@ -164,7 +165,7 @@ async fn test_head_bucket_missing_returns_404() {
         storage: env.storage,
         meta: env.meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 
@@ -197,7 +198,7 @@ async fn test_delete_empty_bucket_returns_204() {
         storage: env.storage,
         meta: env.meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 
@@ -237,7 +238,7 @@ async fn test_list_buckets_returns_xml() {
         storage: env.storage,
         meta: env.meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 
@@ -286,7 +287,7 @@ async fn test_delete_object_returns_204() {
         storage: env.storage.clone(),
         meta: env.meta.clone(),
         config: env.config.clone(),
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 
@@ -322,4 +323,81 @@ async fn test_delete_object_returns_204() {
         .unwrap();
     let del_resp = app.oneshot(del_req).await.unwrap();
     assert_eq!(del_resp.status(), StatusCode::NO_CONTENT);
+}
+
+#[tokio::test]
+async fn test_delete_missing_object_returns_204() {
+    // S3 DELETE Object is idempotent: deleting a key that doesn't exist
+    // (in an existing bucket) returns 204, not 404.
+    let env = make_env().await;
+    env.storage
+        .create_bucket("idempotent-bucket")
+        .await
+        .unwrap();
+    env.meta
+        .create_bucket("idempotent-bucket", ACCESS_KEY)
+        .await
+        .unwrap();
+
+    let amz_date = chrono::Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
+    let del_auth = sign(
+        "DELETE",
+        "/idempotent-bucket/never-existed.txt",
+        "localhost",
+        &amz_date,
+        EMPTY_SHA,
+        &[],
+    );
+    let app = build_router(AppState {
+        storage: env.storage.clone(),
+        meta: env.meta.clone(),
+        config: env.config.clone(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
+        rate_limiter: None,
+    });
+    let req = Request::builder()
+        .uri("/idempotent-bucket/never-existed.txt")
+        .method("DELETE")
+        .header("host", "localhost")
+        .header("x-amz-date", &amz_date)
+        .header("x-amz-content-sha256", EMPTY_SHA)
+        .header("authorization", del_auth)
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+}
+
+#[tokio::test]
+async fn test_delete_object_in_missing_bucket_returns_404() {
+    // The bucket itself missing is still a hard 404 (NoSuchBucket).
+    let env = make_env().await;
+
+    let amz_date = chrono::Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
+    let del_auth = sign(
+        "DELETE",
+        "/no-such-bucket/key.txt",
+        "localhost",
+        &amz_date,
+        EMPTY_SHA,
+        &[],
+    );
+    let app = build_router(AppState {
+        storage: env.storage.clone(),
+        meta: env.meta.clone(),
+        config: env.config.clone(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
+        rate_limiter: None,
+    });
+    let req = Request::builder()
+        .uri("/no-such-bucket/key.txt")
+        .method("DELETE")
+        .header("host", "localhost")
+        .header("x-amz-date", &amz_date)
+        .header("x-amz-content-sha256", EMPTY_SHA)
+        .header("authorization", del_auth)
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }

@@ -22,7 +22,6 @@ use ferrox_error::FerroxError;
 use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 use ring::hmac;
 use sha2::{Digest, Sha256};
-use tracing::debug;
 
 use crate::auth::SigV4Header;
 
@@ -150,16 +149,13 @@ pub fn verify_presigned_url(
 
     let signing_key = derive_signing_key(secret_key, &parsed.date, &parsed.region, &parsed.service);
     let key = hmac::Key::new(hmac::HMAC_SHA256, &signing_key);
-    let computed_sig = hex::encode(hmac::sign(&key, string_to_sign.as_bytes()).as_ref());
-    debug!(
-        canonical_request = %canonical,
-        string_to_sign = %string_to_sign,
-        computed_signature = %computed_sig,
-        provided_signature = %parsed.signature,
-        "presigned SigV4 verification"
-    );
     let provided = hex::decode(&parsed.signature)
         .map_err(|_| FerroxError::AuthFailed("presigned signature is not valid hex".into()))?;
+    // ring::hmac::verify performs constant-time comparison internally. We
+    // deliberately do NOT log canonical_request / string_to_sign here:
+    // signed headers can carry SSE-C keys (x-amz-server-side-encryption-customer-key)
+    // and re-signing material, so emitting them to operator logs would be a
+    // credential exposure.
     hmac::verify(&key, string_to_sign.as_bytes(), &provided)
         .map_err(|_| FerroxError::AuthFailed("presigned signature mismatch".into()))?;
     Ok(())
@@ -212,23 +208,24 @@ pub fn verify_sigv4(
 
     let signing_key = derive_signing_key(secret_key, &parsed.date, &parsed.region, &parsed.service);
     let key = hmac::Key::new(hmac::HMAC_SHA256, &signing_key);
-    let computed_sig = hex::encode(hmac::sign(&key, string_to_sign.as_bytes()).as_ref());
-    debug!(
-        canonical_request = %canonical,
-        string_to_sign = %string_to_sign,
-        computed_signature = %computed_sig,
-        provided_signature = %parsed.signature,
-        "SigV4 verification"
-    );
     let provided = hex::decode(&parsed.signature)
         .map_err(|_| FerroxError::AuthFailed("signature is not valid hex".into()))?;
-    // ring::hmac::verify performs constant-time comparison internally.
+    // ring::hmac::verify performs constant-time comparison internally. See
+    // verify_presigned_url for why canonical_request / string_to_sign are
+    // intentionally not logged.
     hmac::verify(&key, string_to_sign.as_bytes(), &provided)
         .map_err(|_| FerroxError::AuthFailed("signature mismatch".into()))?;
     Ok(())
 }
 
-fn check_clock_skew(amz_date: &str, now_unix: i64, skew_secs: i64) -> Result<(), FerroxError> {
+/// Reject `x-amz-date` more than `skew_secs` away from `now_unix`.
+///
+/// Shared with SigV4A. AWS spec mandates 15 min default; production may tighten.
+pub(crate) fn check_clock_skew(
+    amz_date: &str,
+    now_unix: i64,
+    skew_secs: i64,
+) -> Result<(), FerroxError> {
     // amz_date format: yyyyMMdd'T'HHmmss'Z'
     let parsed = chrono::NaiveDateTime::parse_from_str(amz_date, "%Y%m%dT%H%M%SZ")
         .map_err(|e| FerroxError::AuthFailed(format!("bad x-amz-date: {e}")))?;
@@ -242,7 +239,9 @@ fn check_clock_skew(amz_date: &str, now_unix: i64, skew_secs: i64) -> Result<(),
     Ok(())
 }
 
-fn canonical_request(
+/// Build the AWS canonical request string. Identical construction for SigV4
+/// and SigV4A (only the string-to-sign prefix and signing algorithm differ).
+pub(crate) fn canonical_request(
     method: &str,
     path: &str,
     query: &str,
@@ -271,7 +270,7 @@ fn canonicalize_path(path: &str) -> String {
         .join("/")
 }
 
-fn canonicalize_query(query: &str) -> String {
+pub(crate) fn canonicalize_query(query: &str) -> String {
     if query.is_empty() {
         return String::new();
     }
@@ -314,7 +313,7 @@ fn canonicalize_query(query: &str) -> String {
         .join("&")
 }
 
-fn canonicalize_headers(
+pub(crate) fn canonicalize_headers(
     headers: &[(String, String)],
     signed_headers: &[String],
 ) -> Result<String, FerroxError> {
@@ -350,7 +349,7 @@ fn collapse_ws(s: &str) -> String {
     out
 }
 
-fn hex_sha256(data: &[u8]) -> String {
+pub(crate) fn hex_sha256(data: &[u8]) -> String {
     let mut h = Sha256::new();
     h.update(data);
     hex::encode(h.finalize())

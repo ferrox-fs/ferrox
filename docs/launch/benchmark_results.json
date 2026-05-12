@@ -6,7 +6,7 @@
     "memory_gib": 4,
     "storage": "EBS gp3 — 50 GiB"
   },
-  "ferrox_version": "0.1.0",
+  "ferrox_version": "1.0.0",
   "minio_version": "TBD",
   "results": {
     "list_objects_v2_1000": { "ferrox_p99_ms": null, "minio_p99_ms": null },

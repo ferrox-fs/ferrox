@@ -73,6 +73,16 @@ pub enum FerroxError {
         got: String,
     },
 
+    /// Request body or part is smaller than allowed by the S3 spec.
+    /// In particular, every multipart part except the last must be at least 5 MiB.
+    #[error("entity too small: {0}")]
+    EntityTooSmall(String),
+
+    /// Request body or part exceeds the maximum size allowed by the S3 spec
+    /// (5 GiB per part, 5 TiB per object).
+    #[error("entity too large: {0}")]
+    EntityTooLarge(String),
+
     /// Catch-all for unexpected internal failures.
     #[error("internal error: {0}")]
     Internal(String),
@@ -106,6 +116,8 @@ impl FerroxError {
             Self::AuthFailed(_) => "InvalidSignature",
             Self::InvalidRequest(_) => "InvalidArgument",
             Self::ChecksumMismatch { .. } => "BadDigest",
+            Self::EntityTooSmall(_) => "EntityTooSmall",
+            Self::EntityTooLarge(_) => "EntityTooLarge",
             Self::Internal(_) => "InternalError",
         }
     }
@@ -124,6 +136,8 @@ impl FerroxError {
             Self::AuthFailed(_) => 403,
             Self::InvalidRequest(_) => 400,
             Self::ChecksumMismatch { .. } => 400,
+            Self::EntityTooSmall(_) => 400,
+            Self::EntityTooLarge(_) => 400,
             Self::Internal(_) => 500,
         }
     }
@@ -255,6 +269,9 @@ mod tests {
             bucket: "photos".into(),
             key: None,
         };
-        assert_eq!(bucket_err.to_string(), "The specified bucket does not exist.");
+        assert_eq!(
+            bucket_err.to_string(),
+            "The specified bucket does not exist."
+        );
     }
 }

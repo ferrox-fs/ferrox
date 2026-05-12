@@ -40,6 +40,7 @@ async fn make_env() -> TestEnv {
         secret_key: SECRET_KEY.into(),
         fsync: false,
         clock_skew_secs: 900,
+        region: "testregion".into(),
         sse_master_key: None,
         max_req_per_sec: 0,
     });
@@ -98,7 +99,7 @@ async fn test_put_object_success_returns_200_with_etag() {
         storage: env.storage,
         meta: env.meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 
@@ -160,7 +161,7 @@ async fn test_put_object_missing_content_length_returns_411() {
         storage: env.storage,
         meta: env.meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 
@@ -192,7 +193,7 @@ async fn test_put_object_nonexistent_bucket_returns_404() {
         storage: env.storage,
         meta: env.meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 
@@ -225,7 +226,7 @@ async fn test_put_object_invalid_bucket_name_returns_400() {
         storage: env.storage,
         meta: env.meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 

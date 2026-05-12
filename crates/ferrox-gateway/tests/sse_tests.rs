@@ -43,6 +43,7 @@ async fn make_env_with_sse() -> TestEnv {
         secret_key: SECRET_KEY.into(),
         fsync: false,
         clock_skew_secs: 900,
+        region: "testregion".into(),
         sse_master_key: Some(SseMasterKey::from_hex(TEST_MASTER_KEY_HEX).unwrap()),
         max_req_per_sec: 0,
     });
@@ -68,6 +69,7 @@ async fn make_env_no_sse() -> TestEnv {
         secret_key: SECRET_KEY.into(),
         fsync: false,
         clock_skew_secs: 900,
+        region: "testregion".into(),
         sse_master_key: None,
         max_req_per_sec: 0,
     });
@@ -151,7 +153,7 @@ async fn test_sse_put_returns_sse_header() {
         storage: env.storage,
         meta: env.meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 
@@ -200,7 +202,7 @@ async fn test_sse_get_returns_plaintext() {
         storage: env.storage,
         meta: env.meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 
@@ -279,7 +281,7 @@ async fn test_sse_head_reports_plaintext_size() {
         storage: env.storage,
         meta: env.meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 
@@ -353,7 +355,7 @@ async fn test_sse_request_without_master_key_returns_400() {
         storage: env.storage,
         meta: env.meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 
@@ -397,7 +399,7 @@ async fn test_sse_encrypted_bytes_differ_from_plaintext() {
         storage: env.storage,
         meta: env.meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 

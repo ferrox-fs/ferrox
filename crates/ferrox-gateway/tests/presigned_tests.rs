@@ -40,6 +40,7 @@ async fn make_env() -> TestEnv {
         secret_key: SECRET_KEY.into(),
         fsync: false,
         clock_skew_secs: 900,
+        region: "testregion".into(),
         sse_master_key: None,
         max_req_per_sec: 0,
     });
@@ -244,7 +245,7 @@ async fn test_presigned_get_object_returns_200() {
         storage: env.storage,
         meta: env.meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 
@@ -273,7 +274,7 @@ async fn test_presigned_expired_url_returns_403() {
         storage: env.storage,
         meta: env.meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 
@@ -299,7 +300,7 @@ async fn test_presigned_wrong_signature_returns_403() {
         storage: env.storage,
         meta: env.meta,
         config: env.config,
-        metrics: ferrox_gateway::metrics::Metrics::new(),
+        metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
         rate_limiter: None,
     });
 

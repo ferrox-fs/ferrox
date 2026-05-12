@@ -31,6 +31,7 @@ async fn make_state() -> (TempDir, AppState<DiskBackend, SledMeta>) {
         secret_key: SK.into(),
         fsync: false,
         clock_skew_secs: 900,
+        region: "testregion".into(),
         sse_master_key: None,
         max_req_per_sec: 0,
     });
@@ -40,7 +41,7 @@ async fn make_state() -> (TempDir, AppState<DiskBackend, SledMeta>) {
             storage,
             meta,
             config,
-            metrics: ferrox_gateway::metrics::Metrics::new(),
+            metrics: ferrox_gateway::metrics::Metrics::new().unwrap(),
             rate_limiter: None,
         },
     )

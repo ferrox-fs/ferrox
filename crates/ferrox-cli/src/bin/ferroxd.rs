@@ -83,6 +83,12 @@ struct Cli {
     #[arg(long, env = "FERROX_CLOCK_SKEW_SECS", default_value_t = 900)]
     clock_skew_secs: i64,
 
+    /// AWS region this gateway serves. SigV4 verification matches the
+    /// request scope's region against this; SigV4A matches the request's
+    /// `x-amz-region-set` against this.
+    #[arg(long, env = "FERROX_REGION", default_value = "us-east-1")]
+    region: String,
+
     /// Call fsync after every object write.
     #[arg(long, env = "FERROX_FSYNC", default_value_t = true)]
     fsync: bool,
@@ -140,11 +146,12 @@ async fn main() -> Result<()> {
         secret_key: cfg.secret_key,
         fsync: cfg.fsync,
         clock_skew_secs: cfg.clock_skew_secs,
+        region: cfg.region,
         sse_master_key,
         max_req_per_sec: cfg.max_req_per_sec,
     });
 
-    let metrics = Metrics::new();
+    let metrics = Metrics::new().context("registering Prometheus metrics")?;
     let rate_limiter = PerKeyRateLimiter::new(cfg.max_req_per_sec);
 
     let app = build_router(AppState {
@@ -322,19 +329,30 @@ async fn multipart_janitor<M: MetaStore>(
 }
 
 /// Resolves on SIGTERM or Ctrl-C.
+///
+/// If signal handler installation fails (e.g. running without a controlling
+/// tty), we log a warning and fall through to a never-ready future. The
+/// process can still be terminated externally; we just won't get clean
+/// shutdown via the signal path.
 async fn shutdown_signal() {
     let ctrl_c = async {
-        tokio::signal::ctrl_c()
-            .await
-            .expect("failed to install Ctrl-C handler");
+        if let Err(e) = tokio::signal::ctrl_c().await {
+            tracing::warn!(error = %e, "Ctrl-C handler unavailable");
+            std::future::pending::<()>().await;
+        }
     };
 
     #[cfg(unix)]
     let sigterm = async {
-        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-            .expect("failed to install SIGTERM handler")
-            .recv()
-            .await;
+        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            Ok(mut s) => {
+                s.recv().await;
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "SIGTERM handler unavailable");
+                std::future::pending::<()>().await;
+            }
+        }
     };
 
     #[cfg(not(unix))]

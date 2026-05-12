@@ -4,7 +4,7 @@
 //! bucket or object metadata that *isn't* derivable from the storage backend
 //! alone — owner, creation time, custom headers, list-pagination state.
 //!
-//! The default impl is [`SledMeta`](sled_store::SledMeta), an embedded ACID
+//! The default impl is [`SledMeta`], an embedded ACID
 //! key-value store. RocksDB joins as an opt-in backend in Phase 3.
 //!
 //! ## Key schema

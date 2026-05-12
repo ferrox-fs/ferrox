@@ -66,6 +66,10 @@ base64 = "0.22"
 percent-encoding = "2"
 url = "2.4"
 
+# Pure-Rust ECDSA P-256 (SigV4A). No C FFI — required by project rules.
+p256 = { version = "0.13", features = ["ecdsa", "arithmetic"] }
+elliptic-curve = "0.13"
+
 # Time / IDs
 time = { version = "0.3", features = ["serde", "formatting", "parsing", "macros"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }

@@ -1,7 +1,7 @@
 //! Bucket notification dispatch (Phase 3 Step 41).
 //!
 //! After successful PutObject / DeleteObject / CopyObject the gateway looks up
-//! the bucket's [`NotificationRule`](ferrox_meta::NotificationRule) list and
+//! the bucket's [`NotificationRule`] list and
 //! POSTs an S3-compatible event JSON to each matching destination via
 //! [`tokio::spawn`] — best-effort, never blocks the original request.
 
